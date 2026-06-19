@@ -1,0 +1,47 @@
+# === Models & weights — NEVER commit (they live on D:, multi-GB) ===
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+models/
+
+# === Data & large raw measurement dumps (commit the results *docs*, not GB blobs) ===
+data/
+*.parquet
+results/raw/*.bin
+results/raw/*.npy
+results/raw/*.npz
+results/raw/*.csv.gz
+
+# === Caches (these MUST be redirected to D: anyway — never let them land on C:) ===
+.cache/
+hf_cache/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# === Build artifacts ===
+build/
+out/
+*.o
+*.obj
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+
+# === Logs & scratch ===
+*.log
+scratch/
+tmp/
+
+# === OS / editor ===
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
