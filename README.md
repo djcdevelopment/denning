@@ -2,7 +2,7 @@
 
 *Treating an LLM's context (KV-cache) and MoE experts as an OS-managed resource on fabric-less, OS-arbitrated GPUs.*
 
-**Named for Peter J. Denning** — the working-set model and page-fault-frequency load control (1968). This project reincarnates that idea for KV/expert residency on a GPU: admit work to the resident set only while it fits the bandwidth roofline; suspend before you thrash.
+**Named for Peter J. Denning** — the working-set model (CACM 1968) and the page-fault-frequency load-control tradition that followed (1970s). This project reincarnates that idea for KV/expert residency on a GPU: admit work to the resident set only while it fits the bandwidth roofline; suspend before you thrash.
 
 ## Thesis (one sentence)
 
