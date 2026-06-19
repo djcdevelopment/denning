@@ -77,9 +77,9 @@ where `materialization_cost` is the **min** of Results 1–3 for that block. **B
 
 | Corollary (prediction) | Tested by |
 |---|---|
-| C1: refetch ≫ recompute on time; recompute is capacity-only | E1 (recompute arm) |
-| C2: compression wins iff **contended** `B_dq > B_pcie·r/(r−1)` (~13–26 GB/s) | **E1 (headline)** |
-| C3: card→card ≈ ≤½ `B_pcie`; asymmetric feed only pays if Card 1 computes | E1 4th primitive |
+| C1: refetch ≫ recompute on time; recompute is capacity-only | **✅ CONFIRMED 2026-06-19** (R_prefill 1500 → refetch ~176× cheaper) |
+| C2: compression wins iff **contended** `B_dq > B_pcie·r/(r−1)` | **✅ CONFIRMED** — wins isolated/real-decode 6–8×, synthetic-saturation 1.7–2.2× |
+| C3: card→card ≈ ≤½ `B_pcie`; asymmetric feed only pays if Card 1 computes | **✅ CONFIRMED** (6.48 ≈ 0.47× B_pcie) |
 | C4: goodput-under-SLO peaks at `N* = min(N*_bw, H-limit)` | H2′ |
 | C5: commit headroom `H`, not VRAM, is the feasibility wall | H2′ / observed |
 | C6: classes beat TTL iff provenance predicts reuse-distance (assumption D) | H4 ablation |
