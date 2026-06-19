@@ -7,8 +7,9 @@
 | Symbol | Meaning | Est. value (B70 rig) |
 |---|---|---|
 | `B_vram` | VRAM bandwidth | ~608 GB/s |
-| `B_pcie` | PCIe 4.0 x8 effective | ~12–14 GB/s `[MEASURE]` |
-| `B_dq(s)` | dequant-kernel output throughput, scheme s | `[MEASURE]` (isolated AND contended) |
+| `B_pcie` | PCIe 4.0 x8 effective | **~10.4 GB/s asymptotic — MEASURED 2026-06-19** (mildly contended; small-block 0.95–5 GB/s; clean re-run pending) |
+| `B_dq(s)` | dequant-kernel output throughput, scheme s | **MEASURED isolated 2026-06-19: int8→fp16 165, int4-unpack 85.5 GB/s → R2 WINS isolated 6–8×.** Contended (headline) pending. |
+| `B_c2c` | card→card (host-bounced; no P2P on Windows) | **3.89 GB/s — MEASURED** (≈0.38× B_pcie → R3 confirmed) |
 | `R_prefill` | prefill rate (tokens/s) → recompute | **~1500 t/s — MEASURED 2026-06-19** (single-card B70, Vulkan, Qwen3-30B-A3B, pp512; prior "30.1" was anomalous). → R1 confirmed: refetch ~176× cheaper than recompute. |
 | `k` | KV bytes/token (Qwen3-Coder-30B-A3B, GQA-4, 48L) | ~96 KB FP16 / ~49 KB FP8 / ~24.5 KB INT4 |
 | `r` | compression ratio | 2× (FP8), 4× (INT4) |
