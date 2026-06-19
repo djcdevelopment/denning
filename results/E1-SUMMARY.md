@@ -31,10 +31,16 @@ Compression wins across the whole contention spectrum; the penalty is **co-tenan
 | 16K | 58.2 | 0.44× |
 | 32K | 38.0 | 0.29× |
 | 64K | **11.5** | **0.087×** |
-~Linear to 32K, then a **superlinear cliff** (64K = 11.5× slower than empty; the Vulkan attention-kernel cliff — SYCL would shift it). Admission keeps sessions left of it. *[q8-KV variant in flight: does halving the KV bytes push the cliff out + reach 128K?]*
+~Linear to 32K, then a **superlinear cliff** (64K = 11.5× slower than empty; the Vulkan attention-kernel cliff). Admission keeps sessions left of it. **q8-KV finding (prediction corrected):** q8 KV is **2–4× SLOWER** at depth, not faster — isolated to the **flash-attention kernel** (f16+FA ≈ q8+FA, both ~4× slower than f16-no-FA). On Vulkan/Arc **FA is a pessimization** and quantized KV (which forces FA) is a trap; the default attention path wins. Kernel + engine is a first-class variable. (See `E1-q8kv-roofline`.)
 
 ## H2′ — N-session admission scaling ✅
 Aggregate decode **60.9 → 80.6 → 97.4 → 109.9 t/s** @ parallel 1/2/4/8 (still rising at 8 → `N*` > 8 at small ctx); prefill plateaus ~B=4. `N* = min(bandwidth, commit)`, shrinks as context grows.
+
+## Architecture axis — MoE vs dense ✅
+At equal ~32B total / Q4 / single card: **MoE (3B active) decodes 5.7× faster than dense 32B** (130 vs 23 t/s), prefills 2.9× faster — decode streams active params, so MoE is the bandwidth-efficient architecture here. Empirically validates the MoE choice for this hardware.
+
+## Kernel/engine axis — flash attention is a pessimization on Vulkan/Arc ✅ (surprising)
+`-fa` (required for quantized KV) is **~4× slower than default attention at depth** (f16+FA ≈ q8+FA ≈ 10 t/s @32K vs f16-no-FA 38). So q8 KV is a *capacity-vs-speed trap* on this stack, and **kernel + engine is a first-class variable** (a corrected prediction → a real finding).
 
 ## Status vs roadmap
 **I-2 / E1 substantially DONE** (R1/R2/R3 + roofline + N-session measured on-rig). Remaining E1 refinements: q8-KV roofline (in flight), dequant-under-N-decode, copy-engine scheduling sweep, SYCL-vs-Vulkan cliff (needs ollama/ipex-llm harness), llama.cpp-matched dequant kernel. **Caveats:** dequant is a torch proxy; single-card; Vulkan. **Needs the operator:** G0 + tagging; H1 (watchdog first); the asymmetric two-card build.

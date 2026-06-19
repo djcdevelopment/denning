@@ -25,3 +25,13 @@ On the current Vulkan/Arc stack, **f16 KV (default attention) beats q8 KV (flash
 
 ## Manifest
 llama-bench b9279 · Card B · `-p 0 -n 64 -d {0,32768,65536,131072} -ctk q8_0 -ctv q8_0 -fa 1 -r 2` · driver 32.0.101.8826.
+
+## ISOLATION RESULT — the cause is the FA KERNEL, not q8
+Ran **f16 KV + flash attention** (`-fa 1`, no q8) to separate the FA kernel from the q8 dtype:
+| ctx | f16 no-FA | **f16 +FA** | q8 +FA |
+|---|---|---|---|
+| 0 | 132.8 | 119.7 | 104.1 |
+| 32K | 38.0 | **10.34** | 9.38 |
+| 64K | 11.5 | **5.36** | 4.92 |
+
+**f16+FA ≈ q8+FA at depth** (10.3 vs 9.4; 5.4 vs 4.9), both **~4× slower than f16-no-FA** → **the Vulkan/Arc flash-attention kernel is the bottleneck, independent of KV dtype**; q8 adds only ~10%. **Conclusion (airtight, actionable): on Vulkan/Arc, flash attention is a *pessimization* for long-context decode** (opposite of CUDA) — the default path wins ~4×. Since quantized KV *requires* FA, **q8 KV is a trap on this stack** (can't get byte-savings without the broken-FA tax). Fix = a better Vulkan FA kernel / a non-FA quantized-KV path / SYCL. **Engine + kernel is a first-class variable** — sharpened to a deployable rule.

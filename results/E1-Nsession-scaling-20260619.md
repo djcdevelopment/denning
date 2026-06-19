@@ -20,3 +20,17 @@
 
 ## Manifest
 llama-batched-bench b9279 · Card B (`GGML_VK_VISIBLE_DEVICES=1`) · `-npp 512 -ntg 128 -npl 1,2,4,8` · driver 32.0.101.8826.
+
+## Extended sweep (1→32) + the noise reality
+| B | decode S_TG | prefill S_PP |
+|---|---|---|
+| 1 | 76.0 | 572 |
+| 4 | 113.8 | 839 |
+| 8 | **145.6** | 892 |
+| 16 | 85.4 | 896 |
+| 32 | 131.0 | 896 |
+
+**Decode peaks ~B=8, then goes non-monotonic** (85 @16, 131 @32). **Run-to-run variance is large:** this sweep's B=1=76 / B=8=146 vs the earlier sweep's 61 / 110 — a **~20–30% swing between identical runs**. So:
+- **`N*` ≈ B 8** at this small context (aggregate decode peaks there), but the exact knee is **obscured by substrate noise** — pinning it needs averaged runs + a noise floor (Uncle's power/MDE discipline, **validated empirically here**).
+- Prefill plateaus cleanly at **~896 t/s** for B ≥ 8 (compute-bound).
+- **Honest:** these single-run batched-bench numbers are noisy — treat the *shape* (rise to ~8, prefill plateau) as the signal, not the absolute t/s. The red-team/Uncle substrate-noise concern is real and measured.
