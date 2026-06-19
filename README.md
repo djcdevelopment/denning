@@ -8,6 +8,10 @@
 
 On a fabric-less, RAM-inverted, OS-arbitrated GPU box (Windows/VidMm, PCIe-only Intel Arc, RAM < VRAM), correct LLM-state management is **bandwidth-roofline admission control + co-residency with an adversarial OS memory manager**, with reuse-provenance **lifetime classes** as the single control signal — demonstrated on the one workload the box is genuinely good at: **many concurrent agent KV sessions on a single card under desktop co-tenancy.**
 
+**Contribution (one sentence):** *On memory-inverted, fabric-less GPUs the materialization decision inverts from the datacenter answer under compute contention, and closed-form admission control on this cost model — over a pinned deterministic arena, not heuristic paging — is sufficient to operate at the feasibility bound.* (North star above = motivation; this = the claim.)
+
+**Goal: map the feasibility envelope (the bounds), with the simplest system that reveals it.** Compression depth and bit-checks are deferred levers — see `docs/cost-model.md` §7.
+
 ## Status: **S0 — research setup** (pre-registration in progress; no results yet)
 
 Next gate: **G0** — the advisor reviews methodology + pre-registration **before any GPU-hour is spent.**

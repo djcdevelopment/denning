@@ -84,3 +84,22 @@ where `materialization_cost` is the **min** of Results 1–3 for that block. **B
 | C6: classes beat TTL iff provenance predicts reuse-distance (assumption D) | H4 ablation |
 
 Each is a number or a direction we commit *before* measuring. Where the measured curves **deviate** from this model (PCIe below theoretical x8, dequant memory-bound below some block size, contention nonlinearities, the prefill anomaly) — those deviations are the paper's findings.
+
+## 6. Design substrate & the thin controller (the moving parts — kept few on purpose)
+
+The whole runtime is a small, countable set of parts:
+1. **Two cards, asymmetric roles** — Card 1 (states + light compute, e.g. prefill/feed), Card 2 (heavy compute, fed amortized). Exact roles set by E1's C3 number.
+2. **A pinned deterministic arena** per card — fixed-size, max-residency, uniformly-blocked, with internal ring/bank rotation. *Inside it we are the memory manager; VidMm is locked out* (best-effort on Windows — the H1 probe measures how well the lock holds). Its determinism is what makes the constants above stop drifting.
+3. **A closed-form controller** — the manager does very little: demand ("need more inference") → evaluate §1–§4 against the known limits (`N*`, `H`, the materialization crossover) → deterministic reaction (admit / defer / rotate / recompute-vs-refetch). No heuristic search; evaluated at admission/step boundaries (≈zero hot-path tax). Complexity didn't vanish — it **relocated** to (a) measuring the constants once (E1), (b) the lifetime-class *prediction* feeding the equations (assumption D / H4 — the residual intelligence), (c) the OS-boundary negotiation (co-management).
+4. **`B_dq` is scheduling-dependent.** Result 2's threshold is recovered or lost by *how* dequant and decode are scheduled (copy-engine transfer vs compute-engine decode; separate queues; HAGS). Scheduling is a *knob/axis* in E1, not a new subsystem. The OS scheduler **VidSch** is VidMm's sibling — co-*scheduling* is the same co-management story, **measured, not separately built**.
+
+## 7. Scope: we are bounding, not optimizing (keep it simple)
+
+The deliverable is the **feasibility envelope** — the size/scaling *bounds* of local inference here — found with the *simplest* system that reveals them. Optimizations are known levers added **after** the idea is proven, only **if the use requires**:
+- **Compression depth** — use only the quant we need anyway (FP8/INT4); defer sophisticated/learned compression. (Result 2 says the ceiling is the contended `B_dq`; richer compression just moves `r` — it improves the bound, it doesn't define it.)
+- **Integrity / bit-checks (ECC-lite)** — deferred. Optional later: a periodic checksum of the *static* locked weights region, only if a long-running deployment needs it. KV rides un-checked (LLMs tolerate noise).
+- **Asymmetric-feed elaboration** — start with the simplest split E1's C3 justifies; don't build the feed pipeline before the card→card number says it's worth it.
+
+**Rule: no new moving part enters the core until E1's bounds say it's needed. Find the envelope first.**
+
+**Contribution (one sentence):** *On memory-inverted, fabric-less GPUs the materialization decision inverts from the datacenter answer under compute contention, and **closed-form** admission control on this cost model — over a pinned deterministic arena, not heuristic paging — is sufficient to operate at the feasibility bound.*
