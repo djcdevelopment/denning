@@ -9,7 +9,7 @@
 | `B_vram` | VRAM bandwidth | ~608 GB/s |
 | `B_pcie` | PCIe 4.0 x8 effective | ~12–14 GB/s `[MEASURE]` |
 | `B_dq(s)` | dequant-kernel output throughput, scheme s | `[MEASURE]` (isolated AND contended) |
-| `R_prefill` | prefill rate (tokens/s) → recompute | `[MEASURE]` (prior MoE est. anomalously low) |
+| `R_prefill` | prefill rate (tokens/s) → recompute | **~1500 t/s — MEASURED 2026-06-19** (single-card B70, Vulkan, Qwen3-30B-A3B, pp512; prior "30.1" was anomalous). → R1 confirmed: refetch ~176× cheaper than recompute. |
 | `k` | KV bytes/token (Qwen3-Coder-30B-A3B, GQA-4, 48L) | ~96 KB FP16 / ~49 KB FP8 / ~24.5 KB INT4 |
 | `r` | compression ratio | 2× (FP8), 4× (INT4) |
 | `H` | commit headroom (the true wall) | ~`[MEASURE]`; commit, not free RAM |
