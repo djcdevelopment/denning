@@ -117,6 +117,12 @@ Use him where an expert adds the most: **methodology up front (G0)** and **go/no
 
 Single-box / single-vendor generalization; substrate noise (pinned-build mitigation); model-staleness of the rung-1 anchor; VidMm behavior varying by driver version; benchmark realism (use ShareGPT/WildChat/agentic traces, not synthetic). Each gets a sentence on how we mitigate or bound it.
 
+Added from the 4-lens review (2026-06-19):
+- **T2 — synthesized workloads.** The adversarial VRAM-hog and the agent-session load are operator-synthesized; state how they map to a real co-tenancy distribution (game + IDE + N agents) or bound the artificiality.
+- **T3 — measurement-instrument perturbation.** The P0 harness's own polling/logging must be shown NOT to perturb TBT (report harness overhead the way b70tools reports its ~16.6 MiB / <130 ms footprint).
+- **T4 — single-operator / single-window drift.** Driver/thermal/background drift across a multi-week solo campaign → mitigate by **interleaving conditions within a session** (A,B,A,B…), not all-of-A-then-all-of-B (REPRODUCE.md flight rule 8).
+- *(T1 — pre-registering the SLO threshold — touches the prereg; it's in the G0 decision list, not here.)*
+
 ---
 
 ## 8. Path to publication & the minimal publishable result

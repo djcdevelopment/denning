@@ -10,9 +10,9 @@ There exists a prefix length L* below which on-GPU recompute of a prefix's KV be
 
 ## Mechanism / back-of-envelope `[DRAFT — recompute constants from MEASURED kernel throughput before tagging]`
 Per prefix-token: recompute ≈ `2·active_params / FLOP_rate`; refetch ≈ `KV_bytes_per_token / PCIe_BW`.
-For Qwen3-Coder-30B-A3B (~3.3B active; ~49 KB/tok FP8 KV) on B70 (assume ~100 TFLOPS *effective*; PCIe ~28 GB/s → host DRAM):
-- recompute ≈ ~66 µs/tok; DRAM-refetch ≈ ~1.75 µs/tok → **~38× favoring refetch.**
-*(The effective FLOP rate is the dominant uncertainty — immature SYCL/Vulkan kernels may run ~1/3 of peak. Measure it; don't assume.)*
+For Qwen3-Coder-30B-A3B (~3.3B active; ~49 KB/tok FP8 KV) on B70 (assume ~100 TFLOPS *effective*; **PCIe 4.0 x8/x8 ≈ 12–14 GB/s effective** → host DRAM — NOT the x16 datasheet ~28 GB/s):
+- recompute ≈ ~66 µs/tok; DRAM-refetch ≈ ~3.5 µs/tok → **~19× favoring refetch** (refetch still wins; the predicted L*_dram≈0 does NOT flip).
+*(Two constants to MEASURE on the frozen build, not assume: the effective prefill FLOP rate — immature SYCL/Vulkan kernels may run ~1/3 of peak — and the achieved PCIe x8 bandwidth. The rig is x8/x8, not x16; do not use x16 datasheet numbers.)*
 
 ## Quantitative prediction `[DRAFT]`
 - **L* ≈ 0 vs DRAM-refetch** — recompute loses across the practical prefix range; "spend FLOPs to dodge the bus" **inverts** on bandwidth-rich/FLOP-modest B70.

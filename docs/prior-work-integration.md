@@ -36,6 +36,8 @@ b70tools is a **passive, do-no-harm observability instrument** (zero GPU allocat
 
 **Shared dependency to land first:** the b70tools **commit-headroom gate** (`inference-test-backlog.md` item 3d, identified but uncoded) — denning's admission controller must gate on commit headroom (§3).
 
+**Scaffold denning inherits (generalize, not rebuild):** the N-session harness generalizes b70tools backlog **8c** (two-lane planner/critic, distinct `ONEAPI_DEVICE_SELECTOR`); the H1 adversarial-co-tenant test generalizes the **WoW run** (`findings-wow-realtime-inference-impact-1.md`) + adds **PresentMon** for frame-times. Frame as scaffold-to-generalize, NOT done.
+
 ---
 
 ## 3. Corrections the prior data forces (do not get these wrong)

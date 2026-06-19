@@ -21,7 +21,7 @@
 
 | Work | What it owns | Status |
 |------|-------------|--------|
-| **KTransformers** (SOSP'25) | frontier MoE on 1 consumer GPU + CPU/NVMe offload; needs ~382 GB DRAM + Intel AMX (∴ inapplicable to our 16–18 GB-RAM box) | `[VERIFY]` |
+| **KTransformers** (SOSP'25) | frontier MoE on 1 consumer GPU + CPU/NVMe offload; needs ~382 GB DRAM + Intel AMX (∴ inapplicable to our **32 GB**-RAM box — only ~16–18 GB usable as an offload tier) | `[VERIFY]` |
 | **FluxMoE** (arXiv 2604.02715) | **DECOUPLES** expert residency (our claim is the opposite — *unify*) | `[VERIFY]` |
 | **MoE-ERAS** | "Expert Residency Aware Scheduling" | `[VERIFY]` |
 | MoE-Infinity | MoE offload serving | `[VERIFY]` |
