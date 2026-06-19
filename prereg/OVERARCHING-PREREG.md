@@ -1,60 +1,60 @@
 # Overarching Pre-Registration — denning
 
-**STATUS: DRAFT — NOT YET BINDING.**
-This file is committed as a scaffold. Every prediction marked `[DRAFT]` is a first-draft *prior* to be finalized by the operator and reviewed by the advisor at **Gate G0**. The pre-registration becomes binding only when git-tagged **`prereg-overarching`** after G0 sign-off. **No experiment may run against a hypothesis until that hypothesis's prediction is finalized and the tag is pushed.** Results files reference the tag; the commit-timestamp ordering is the integrity proof.
+**STATUS: DRAFT — NOT YET BINDING / NOT YET TAGGED.**
+Revised 2026-06-19 after auditing prior work in `D:\work\battlemage` + `D:\work\b70tools` (see [`../docs/prior-work-integration.md`](../docs/prior-work-integration.md)). That audit found several original hypotheses were **already observed** in pilot work — so this prereg is split:
 
-> How to read a prediction: each is *falsifiable*, carries a *quantitative threshold*, and states the operator's *honest prior confidence*. The point is not to be right — it is to be honest about what we expected before we looked. Several hypotheses below are **designed to possibly fail**; pre-registering forces us to report that.
+- **Part A — Prior observations (EXPLORATORY).** Documented in prior pilot work. **Cited as prior evidence, NOT pre-registered as predictions.** Tagging these would be dishonest.
+- **Part B — Confirmatory pre-registrations.** Genuinely untested. These get honest quantitative predictions, get git-tagged **`prereg-launch-suppositions`** after advisor Gate G0, and are the ones whose results are an honest unveiling.
 
-Maps to wedges W1–W7 in [`docs/kv-residency-plan-v2-greenred.md`](../docs/kv-residency-plan-v2-greenred.md).
+> The one rule still holds for Part B only: predictions committed (tagged) before data. A refuted Part-B prediction is a success of the method. The pilot work is the exploratory phase that generated and calibrated these confirmatory hypotheses — a standard, honest research structure.
 
----
-
-## H1 — VidMm involuntarily evicts a foreground serving process (W1 / RQ1)
-
-- **Hypothesis (falsifiable):** Under an adversarial desktop VRAM-hog that drives the DXGI budget below the resident KV demand of N concurrent agent sessions on one B70, VidMm will *involuntarily* demote/evict ≥1 of the serving process's KV heaps, producing a measurable decode-stall — and a class-aware D3D12 residency policy reduces that stall vs a VidMm-naive baseline.
-- **Mechanism:** WDDM virtualizes VRAM; the per-process budget (`QueryVideoMemoryInfo`) shrinks under contention and over-budget processes can be demoted to shared/system memory (the PCIe cliff).
-- **Prediction `[DRAFT — operator to set, advisor to review @ G0]`:** involuntary demotion of ≥1 KV heap within ~2 s of the budget dropping below resident demand; TBT on affected sessions spikes ≥2× baseline (decode-stall ≥10% of a 10 s window). **Prior: ~50%** — genuinely uncertain. Microsoft documents the coexistence path as *cooperative* (offer/reclaim); a driver may protect a foreground compute process.
-- **Confirm if:** measurable involuntary eviction AND stall ≥ threshold. **Refute if:** VidMm protects the process / stall < a few %.
-- **Pre-committed pivot (if refuted):** demote co-management (W1) to a tested-and-reported secondary result; stand the program on W2 (roofline admission) + W3 (RAM<VRAM). *(This is one leg of the P0 two-sided test.)*
-
-## H2 — Roofline admission on session count maximizes goodput (W2 / RQ2)
-
-- **Hypothesis:** Goodput-under-SLO on one card is maximized by gating the **concurrent-decoding session count** to a roofline-derived ceiling N* (never paging active KV), and this beats a keep-resident + LRU-spill straw-man under overload.
-- **Mechanism:** decode is HBM-bandwidth-bound; beyond N* the aggregate KV stream saturates bandwidth and TBT collapses (thrashing). Denning load control: admit to the working set, suspend the rest. *(Re-grounded on session count, not context length — sparse attention flattens per-step KV bandwidth in context length.)*
-- **Prediction `[DRAFT]`:** an N* exists where goodput-under-SLO peaks; admission-gating to N* beats keep-resident+LRU by ≥20% goodput at 1.5–2× overload. **Prior: ~70%.**
-- **Confirm if:** a clear goodput peak at a finite N* and a ≥ (threshold) win vs straw-man. **Refute if:** monotonic / no peak, or no win.
-- **Pivot:** if no peak, the bottleneck isn't bandwidth-admission as modeled — re-examine the roofline model.
-
-## H3 — Recompute-vs-refetch break-even on B70 (W2 / RQ4)
-
-- **Hypothesis:** There exists a prefix length L* below which on-GPU recompute of a prefix's KV beats refetching it over PCIe.
-- **Mechanism / back-of-envelope `[DRAFT — recompute the constants from measured kernel throughput before tagging]`:** per prefix-token, recompute ≈ `2·active_params / FLOP_rate`; refetch ≈ `KV_bytes_per_token / PCIe_BW`. For rung-1.5 (Qwen3-Coder-30B-A3B: ~3.3B active; ~49 KB/token FP8 KV) on B70 (assume ~100 TFLOPS *effective* with immature kernels; PCIe ~28 GB/s to host DRAM): recompute ≈ ~66 µs/tok vs DRAM-refetch ≈ ~1.75 µs/tok → **~38× favoring refetch.**
-- **Prediction `[DRAFT]`:** **L* ≈ 0 against DRAM-refetch** — i.e., we predict recompute *loses* across the practical prefix range because B70 is bandwidth-rich/FLOP-modest. The design principle "spend FLOPs to dodge the bus" likely **inverts** on this silicon. Recompute's only plausible win is vs **NVMe-refetch** (~3–7 GB/s) or when the KV was never stored. **Prior: ~60% recompute loses to DRAM-refetch.**
-- **Confirm if:** measured L* > a useful threshold (recompute wins for real prefixes). **Refute (= predicted) if:** L*≈0 vs DRAM.
-- **Pre-committed framing:** if recompute loses, **that is the contribution** — a bounded negative result ("the datacenter recompute/refetch answer does NOT invert on commodity bandwidth-rich/FLOP-modest GPUs; here is the break-even and why"). Remove "spend FLOPs to dodge the bus" from the load-bearing claims and favor keep-resident + refetch. *(Second leg of the P0 two-sided test.)*
-
-## H4 — Typed lifetime classes beat TTL / per-block priority (W4 / RQ3) — **the make-or-break ablation**
-
-- **Hypothesis:** A typed reuse-provenance lifetime-class contract (system / session / turn / one-shot / sink) beats per-request TTL (Continuum-style) and per-block priority (KVBM-style) on goodput-under-SLO at rung-1.5, N-session co-tenancy.
-- **Prediction `[DRAFT]`:** classes-ON beats classes-OFF (reuse-probability/TTL scoring kept) by ≥15% goodput-under-SLO at overload. **Prior: ~55%.**
-- **Confirm if:** ≥ (threshold) and statistically robust over N≥5 runs. **Refute if:** within noise.
-- **Pre-committed pivot:** if refuted, the typed contract is dressing — narrow the paper to co-management + admission (smaller paper) and report the null honestly.
-
-## H5 — Inverted-tier cascade: recompute/keep-resident reclaim beats DRAM-warm-tier (W3)
-
-- **Hypothesis:** In the RAM<VRAM regime, treating host DRAM as a thin spill-staging window (not a warm tier) and using keep-resident + admission (and recompute only where H3 says it wins) as the primary reclaim path beats the standard DRAM-warm-tier cascade that the offload literature assumes.
-- **Prediction `[DRAFT]`:** the inverted-cascade policy beats a DRAM-warm-tier baseline by ≥ (threshold) goodput in the RAM<VRAM config; the advantage shrinks/reverses if RAM is artificially uncapped (the "real-32GB vs capped-DRAM" ablation). **Prior: ~60%.** *(Note dependency: if H3 says recompute loses, primary reclaim = keep-resident + admission, not recompute.)*
-- **Confirm / refute / pivot:** as above; if no advantage, RAM<VRAM is a constraint to survive, not a design lever — report it as such.
-
-## H6 — Fractal portability of the lifetime-class contract (W4 / RQ5)
-
-- **Hypothesis:** The same lifetime-class contract drives sensible eviction across all tiers (VRAM → DRAM → NVMe → C:-disk) without per-tier special-casing — within-one-box portability evidence.
-- **Prediction `[DRAFT]`:** one contract + one policy parameterization produces correct, non-degenerate eviction at every tier (qualitative + a portability metric: ≤ (threshold) per-tier special-case lines). **Prior: ~75%.**
-- **Confirm / refute:** if a tier needs bespoke logic, the abstraction is leakier than claimed — document where and why.
+Maps to wedges W1–W7 in [`../docs/kv-residency-plan-v2-greenred.md`](../docs/kv-residency-plan-v2-greenred.md).
 
 ---
 
-### Cross-hypothesis notes
-- **H3 ↔ H5:** the recompute-vs-refetch result gates whether recompute is a real reclaim path; H5's framing must follow H3's outcome.
-- **H1 is on probation:** the whole VidMm/W1 wedge is conditional on H1; that is by design and is the first thing P0 settles.
-- **Kill criteria** (full list) live in [`docs/kv-residency-plan-v2-greenred.md`](../docs/kv-residency-plan-v2-greenred.md) §"Kill criteria (v2)" and are mirrored into each Prediction Card's gates.
+## PART A — Prior observations (exploratory; cite, do NOT pre-register)
+
+- **A1 — The shared-memory spill cliff is real and characterized.** `-fit on` 70B → host RAM 21→1.1 GB, *audible audio chop*, a 70 s prompt hanging past 20 min; a live **6.23 GB** `non_local` spill caught by the PDH cross-process counter. *(battlemage `arc-b70-dual-70b-windows-vulkan.md`; b70tools `retrospective-wow-realtime-inference-impact-overnight-2026-06-16.md`.)*
+- **A2 — Per-model throughput constants** (dual B70, Vulkan, Q4): 70B 188/11.6 t/s; **Qwen3-30B-A3B MoE 30.1 prefill / 81.7 decode**; 32B 242/20.7; Mistral-24B(1 card) 428.9/27.3; 14B(1 card) →1254 prefill / 45 decode. *(b70tools `docs/findings-*.md`; battlemage `bench-2026-05-24/*.jsonl`.)*
+- **A3 — Long-context decode collapse is the Vulkan attention kernel, not spill; SYCL is 3.5× faster.** 32B @ 25k: 4.2 t/s Vulkan vs 14.47 t/s SYCL, with *no spill* present. *(b70tools `retrospective-bsod-fix-and-sycl-unlock-2026-06-18.md`.)*
+- **A4 — The binding host wall is commit charge, not free RAM** (92% commit at 60% physical). *(b70tools overnight retro + README.)*
+- **A5 — Single-card x16 beats dual-card x8/x8-split for models that fit one card**; concurrent dual-card inference shows ~−27% activity + 6× Vulkan init contention (not compute-bound). *(b70tools `findings-both-cards-concurrent-mistral24b-1.md`.)*
+
+These motivate Part B; they are not claims denning gets to make as discoveries.
+
+---
+
+## PART B — Confirmatory pre-registrations (to be tagged)
+
+### H1′ — Game-induced *involuntary* VidMm eviction of a model that FITS (W1 / RQ1)
+- **Hypothesis:** When a model that fits comfortably in one card's budget is serving, and a GPU-heavy game/desktop app then runs on the same card, VidMm involuntarily shrinks the serving process's DXGI budget and demotes its KV/weights to shared memory, causing a measurable decode-stall AND/OR game frame-pacing impact.
+- **Why untested:** the one prior WoW co-tenancy run captured **no frame-times** (no PresentMon) and did **not** spill (A1's spills were self-induced over-allocation). The *fitting-model + game-induced-eviction + frame-pacing* chain is open.
+- **Prediction `[DRAFT — operator/advisor @ G0]`:** game launch drives a fitting serving process to involuntary demotion (PDH `non_local` rises ≥1 GB) within ~5 s; decode-stall ≥2× TBT on affected steps; game frame-time p99 degradation beyond the b70tools no-harm budget (p99 +5%). **Prior: ~50%.**
+- **Confirm / refute / pivot:** confirm = measured involuntary demotion + stall/frame impact; refute = VidMm protects the foreground app and stalls < few % → demote W1 to a tested secondary result, stand on H2′/H5′.
+
+### H2′ — Concurrent-session goodput roofline / thrash knee (W2 / RQ2)
+- **Hypothesis:** Goodput-under-SLO peaks at a finite concurrent-decoding **session count N***; admission-gating to N* beats keep-resident + LRU under overload. *(No slots-vs-goodput sweep exists in prior work — only 1–2 process contention.)*
+- **Prediction `[DRAFT]`:** a goodput peak exists at finite N*; gating to N* beats a no-admission baseline by ≥20% goodput at 1.5–2× overload. Gate on **commit headroom** (per A4), not free RAM. **Prior: ~70%.**
+
+### H3′ — VRAM bandwidth, PCIe rate, and recompute-vs-refetch (W2 / RQ4)
+- **Hypothesis:** A prefix-length break-even L* exists below which on-GPU recompute beats PCIe refetch; predicted small on B70 (bandwidth-rich, FLOP-modest). *(Throughput constants are observed [A2]; GB/s VRAM-BW, GB/s PCIe, and the recompute/refetch comparison are NOT.)*
+- **Calibrated prediction `[DRAFT]`:** ground recompute cost in the **measured** prefill rate (e.g. Qwen3-30B-A3B ~30 t/s prefill on Vulkan — *re-measure on the frozen build, ideally SYCL per A3*), refetch cost in **measured** PCIe GB/s (x8/x8 — re-measure; never benchmarked). Predict **L*_dram ≈ 0** (refetch wins) given the FLOP-modest silicon; finite L*_nvme. **Prior: ~60% recompute loses to DRAM-refetch.** A confirmed negative is the contribution.
+
+### H4 — Typed lifetime classes beat TTL / per-block priority (W4 / RQ3) — make-or-break
+- **Hypothesis:** A typed reuse-provenance lifetime-class contract beats per-request TTL and per-block priority on goodput-under-SLO at rung-1.5, N-session co-tenancy. *(Entirely absent from prior work — b70tools has no lifetime/reuse concept.)*
+- **Prediction `[DRAFT]`:** classes-ON beats classes-OFF by ≥15% goodput-under-SLO at overload (N≥5 runs, robust). **Prior: ~55%.** Refute → narrow to admission-only.
+
+### H5′ — 125k-context MoE single-card shared-memory-spill experiment (W3)
+- **Hypothesis:** At 125k+ context the Qwen3-30B-A3B KV exceeds one card's budget and spills to shared memory with a quantifiable cost; inverted-cascade handling (keep-resident + admission; recompute only where H3′ allows) beats naive spill. *(The cliff [A1] is observed; this specific run is **planned, never executed** — prior `c65536`/`c131072` overnight JSONL files are empty of results.)*
+- **Prediction `[DRAFT]`:** at f16 KV the single-card config spills ~2–3 GB at 131072 ctx (per the plan doc's own estimate) with a measurable decode penalty; q8 KV (~6.3 GiB) fits and avoids it. **Prior: ~65%.** *(These predictions originate in `b70tools/docs/plan-vulkan-moe-125k-shared-memory-2026-06-18.md` — cite as the prediction's source.)*
+
+### H6 — Fractal portability of the lifetime-class contract (W4 / RQ5)
+- **Hypothesis:** one lifetime-class contract drives sensible eviction across VRAM → DRAM → NVMe → C:-disk without per-tier special-casing. *(Untested.)*
+- **Prediction `[DRAFT]`:** one parameterization, non-degenerate eviction at every tier; ≤ (threshold) per-tier special-case lines. **Prior: ~75%.**
+
+---
+
+### Cross-notes
+- **Engine is now a first-class variable** (A3): run the confirmatory experiments on the **frozen SYCL build** where it wins (long-context decode), Vulkan where it wins (cold-load / multi-GPU layer-split) — and report which.
+- **Instrumentation:** consume b70tools (`pdh_gpu_memory`, `host_memory`, `verdict --json`); bind by PCI-BDF; gate on **commit headroom** (land the b70tools commit-gate TODO first). See `../docs/prior-work-integration.md`.
+- **H3′ ↔ H5′** depend on the recompute-vs-refetch outcome; sequence H3′ first.
