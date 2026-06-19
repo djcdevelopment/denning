@@ -1,0 +1,48 @@
+{
+  "device": "xpu:1",
+  "torch": "2.12.1+xpu",
+  "transfer": [
+    {
+      "MB": 0.0625,
+      "H2D_GBs": 1.33,
+      "D2H_GBs": 1.4
+    },
+    {
+      "MB": 0.25,
+      "H2D_GBs": 4.01,
+      "D2H_GBs": 3.87
+    },
+    {
+      "MB": 1,
+      "H2D_GBs": 7.07,
+      "D2H_GBs": 6.62
+    },
+    {
+      "MB": 4,
+      "H2D_GBs": 10.2,
+      "D2H_GBs": 9.72
+    },
+    {
+      "MB": 16,
+      "H2D_GBs": 12.63,
+      "D2H_GBs": 12.54
+    },
+    {
+      "MB": 64,
+      "H2D_GBs": 13.35,
+      "D2H_GBs": 13.49
+    },
+    {
+      "MB": 256,
+      "H2D_GBs": 13.67,
+      "D2H_GBs": 13.76
+    }
+  ],
+  "dequant_isolated": {
+    "int8->fp16_GBs": 169.2,
+    "int4unpack->fp16_GBs": 94.0
+  },
+  "dequant_contended": null,
+  "c2c_GBs": 6.56,
+  "B_pcie_GBs": 13.67
+}
