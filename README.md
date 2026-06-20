@@ -49,6 +49,7 @@ The cost-model core (R1–R3) and the admission roofline (H2′) are **already m
 | [`experiments/`](experiments/) | measurement harnesses (P0 first) |
 | [`ops/`](ops/) | **operational foundation** — pre-flight checklist + pure-observer safing watchdog (I-1) |
 | [`related-work/`](related-work/) | citation tracker with verification status |
+| [`paper/`](paper/hotos-denning.md) | **the HotOS position-paper draft** — the co-residency thesis + the measured evidence |
 | [`REPRODUCE.md`](REPRODUCE.md) | the per-result reproducibility standard |
 
 ## Hardware target
