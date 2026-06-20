@@ -266,6 +266,37 @@ def h4_onrig():
     print("wrote", out)
 
 
+def h4_blockgrained():
+    """H4 block-grained, real costs: classes vs LRU vs TTL (results/H4-blockgrained-20260619.md)."""
+    cap = [16, 18, 20, 22, 24, 26, 28, 32]
+    classes = [0, 0, 43.0, 63.6, 64.4, 70.7, 89.0, 95.0]
+    lru = [0, 0, 0, 0, 0.7, 15.2, 54.4, 94.1]
+    ttl = [0, 0, 0, 0, 0.7, 15.2, 54.4, 94.1]
+
+    fig, ax = plt.subplots(figsize=(7.8, 4.5), dpi=160)
+    fig.subplots_adjust(left=0.1, right=0.96, top=0.83, bottom=0.14)
+    ax.axvspan(15, 30, color=CORAL, alpha=0.05)
+    ax.fill_between(cap, lru, classes, color=BLUE, alpha=0.08)
+    ax.plot(cap, classes, "-o", color=BLUE, lw=2.4, ms=6, label="classes (typed lifetime)")
+    ax.plot(cap, lru, "--s", color=CORAL, lw=2.2, ms=6, label="LRU (recency)")
+    ax.plot(cap, ttl, ":", color=GREY, lw=2.6, label="TTL (time-window) ≡ LRU")
+    ax.set_xlabel("arena capacity (K tokens)  —  smaller = more overload", fontsize=10.5)
+    ax.set_ylabel("goodput-under-SLO (%)", fontsize=10.5)
+    ax.set_ylim(-3, 103)
+    ax.set_xlim(15.5, 32.5)
+    ax.grid(True, color="#dddddd", lw=0.6)
+    ax.set_axisbelow(True)
+    ax.text(23.5, 40, "typed-class\nadvantage", fontsize=9.5, color=BLUE, ha="center")
+    ax.legend(fontsize=9, frameon=False, loc="upper left")
+    fig.suptitle("H4 block-grained (real costs): typed classes beat LRU and TTL", fontsize=11.5, y=0.95)
+    ax.set_title("SYSTEM/DOC/TURN blocks · miss priced at 0.94 ms/token (measured) · denning H4",
+                 fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "h4-blockgrained.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
     decode_roofline()
@@ -274,3 +305,4 @@ if __name__ == "__main__":
     i4c_memory_knee()
     h4_lifetime_classes()
     h4_onrig()
+    h4_blockgrained()
