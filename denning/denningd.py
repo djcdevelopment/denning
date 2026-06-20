@@ -27,6 +27,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 import threading
 import time
@@ -52,7 +54,8 @@ class Daemon:
     def __init__(self, adapter: EngineAdapter, devices, base_port: int = 8240,
                  slots: int = 8, ctx: int = 2048, policy: str = "classes",
                  swap: bool = True, controller: AdmissionController = None,
-                 live_budget: bool = True, nominal_budget_gb: float = CARD_BUDGET_GB):
+                 live_budget: bool = True, nominal_budget_gb: float = CARD_BUDGET_GB,
+                 display_device: int = 0, display_cap: int = 2):
         self.adapter = adapter
         self.devices = list(devices)
         self.base_port = base_port
@@ -63,6 +66,14 @@ class Daemon:
         self.controller = controller or AdmissionController()
         self.live_budget = live_budget
         self.nominal_budget_gb = nominal_budget_gb
+        # ASYMMETRIC caps: the display card (device 0) drives the desktop compositor,
+        # a hard co-tenant. Loading it to the full compute knee reproducibly trips a
+        # WDDM display-driver TDR (results/two-card-TDR-contamination-20260620.md), so
+        # it is capped well below its raw throughput; headless cards run uncapped.
+        self.display_device = display_device
+        self.display_cap = display_cap
+        self.device_caps = {d: (display_cap if d == display_device else None)
+                            for d in self.devices}
         self.ports = [base_port + d for d in self.devices]
         self._port_device = {base_port + d: d for d in self.devices}
         self.router = ReplicaRouter(self.ports)
@@ -129,6 +140,9 @@ class Daemon:
             device = self._port_device[port]
             budget = self._budget(device)           # cache hit (warmed above)
             cap = self.controller.capacity(budget)
+            dcap = self.device_caps.get(device)     # asymmetric: clamp the display card
+            if dcap is not None:
+                cap = min(cap, dcap)
             if self.router.inflight[port] > cap:    # over N* for the live budget -> shed
                 self.router.release(port)
                 self.rejected += 1
@@ -178,25 +192,66 @@ def _dry_run() -> int:
     return 0
 
 
-def _serve(cards: int, n: int) -> int:
+def _watchdog_path() -> str:
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "ops", "safing_watchdog.py")
+
+
+def _serve(cards: int, n: int, display_cap: int = 2, guard_on: bool = True,
+           watchdog_on: bool = True) -> int:
+    from collections import Counter
+
+    from denning.control.tdr_guard import TdrGuard
     from denning.engine.llamacpp import LlamaCppAdapter
     devices = [1] if cards == 1 else [0, 1]
     prompt = ("Explain virtual memory, demand paging, the TLB, and page replacement "
               "in a few precise paragraphs.")
-    d = Daemon(LlamaCppAdapter(), devices=devices, slots=8, ctx=2048,
-               policy="classes", swap=True, live_budget=True)
+
+    guard = TdrGuard() if guard_on else None
+    tdr_before = guard.arm() if guard else None     # snapshot the display-TDR count
+
+    wd = None
+    if watchdog_on:                                  # I-1 safing watchdog as observer
+        wd_log = r"D:\work\denning\results\raw\denningd-serve.watchdog.jsonl"
+        try:
+            wd = subprocess.Popen([sys.executable, _watchdog_path(), "--interval", "3",
+                                   "--watch-tdr", "--log", wd_log],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            wd = None
+
+    d = Daemon(LlamaCppAdapter(), devices=devices, slots=8, ctx=2048, policy="classes",
+               swap=True, live_budget=True, display_device=0, display_cap=display_cap)
     d.start()
     try:
-        sessions = [(i % (n // 2 + 1), prompt, 64) for i in range(n)]   # some shared convs
-        res = d.handle_many(sessions)
+        sessions = [(i, prompt, 64) for i in range(n)]    # N distinct concurrent sessions
+        res = d.handle_many(sessions, max_workers=n)
     finally:
         d.stop()
+        if wd and wd.poll() is None:
+            wd.terminate()
+            try:
+                wd.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                wd.kill()
+
     admitted = [r for r in res if r["admitted"]]
     met = [r for r in admitted if (r.get("tbt_median_ms") or 1e9) <= 50.0]
-    print(json.dumps({"cards": cards, "n": n, "admitted": len(admitted),
-                      "slo_met": len(met), "rejected": d.rejected,
-                      "stats": d.stats()}, indent=2))
-    return 0
+    by_card = Counter(r["device"] for r in admitted)
+    tbts = sorted(r["tbt_median_ms"] for r in admitted if r.get("tbt_median_ms"))
+    tdr_after = guard.current() if guard else None
+    clean = guard.clean() if guard else None
+    out = {"cards": cards, "n": n, "display_cap": display_cap,
+           "admitted": len(admitted), "slo_met": len(met), "rejected": d.rejected,
+           "by_card": dict(by_card),
+           "tbt_median_ms": tbts[len(tbts) // 2] if tbts else None,
+           "agg_decode_tps": round(sum(r.get("decode_tps") or 0 for r in admitted), 1),
+           "tdr_before": tdr_before, "tdr_after": tdr_after, "tdr_clean": clean}
+    if clean is False:
+        out["UNSAFE"] = ("display-driver TDR DURING this run -- result is contaminated, "
+                         "DO NOT report (raise --cards/--display-cap headroom)")
+    print(json.dumps(out, indent=2))
+    return 4 if clean is False else 0
 
 
 def main() -> int:
@@ -205,9 +260,14 @@ def main() -> int:
     ap.add_argument("--serve", action="store_true", help="on-rig: real replicas")
     ap.add_argument("--cards", type=int, choices=[1, 2], default=2)
     ap.add_argument("--n", type=int, default=16)
+    ap.add_argument("--display-cap", type=int, default=2,
+                    help="max concurrent sessions on the display card (device 0); keeps it out of TDR territory")
+    ap.add_argument("--no-guard", action="store_true", help="skip the TDR pre/post integrity check")
+    ap.add_argument("--no-watchdog", action="store_true", help="do not launch the I-1 safing watchdog")
     args = ap.parse_args()
     if args.serve:
-        return _serve(args.cards, args.n)
+        return _serve(args.cards, args.n, args.display_cap,
+                      guard_on=not args.no_guard, watchdog_on=not args.no_watchdog)
     return _dry_run()
 
 

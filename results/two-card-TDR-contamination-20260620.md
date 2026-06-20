@@ -25,6 +25,18 @@ app lose their surfaces. Observed live on cluster 2 (operator watching): video f
 monitor blanked then returned, the Claude desktop app blanked and needed a restart;
 audio (GPU-independent) never dropped.
 
+## Rig TDR history (context — this is a chronically TDR-prone box)
+The full System log holds **114** Event-ID-4101 TDRs, **all driver `igfxnd`**, spanning
+**2026-05-26 → 2026-06-20** (~25 days). Only **4 are in the last 7 days** (our two-card
+runs above); the other **~110 predate the denning two-card work** (the 05/26–06/13
+pilot era — battlemage/b70tools GPU experiments on this same rig). So the display
+driver on this Windows+Arc box resets *frequently* under GPU load, independent of
+denning. That doesn't excuse running across one — it means the opposite: on this
+hardware the display card is a **known, repeatedly-demonstrated** TDR liability, and
+any run that loads it must assume a reset is likely, not hypothetical. (The `TdrGuard`
+is delta-based — it counts resets *during a run* — so the 114 lifetime baseline is
+irrelevant to its verdict.)
+
 ## Correlation to the runs (git commit times, same machine)
 - `two-card-scaling` committed **23:29:28**; `two-card-goodput` committed **23:50:42**.
   The goodput run (`h4_twocard.py`, 16 concurrent streaming sessions across both cards)

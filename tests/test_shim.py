@@ -110,9 +110,59 @@ def main() -> int:
                    on["reprefills"] < off["reprefills"])
 
     fails += _test_daemon()
+    fails += _test_asymmetric()
+    fails += _test_tdr_guard()
 
     print("\n[test_shim]", "PASS" if fails == 0 else f"FAIL ({fails})")
     return 1 if fails else 0
+
+
+def _test_asymmetric() -> int:
+    from denning.denningd import Daemon
+
+    fails = 0
+    print("\n[daemon] asymmetric caps (display card clamped, compute card not):")
+    d = Daemon(FakeAdapter(), devices=[0, 1], slots=8, live_budget=False,
+               display_device=0, display_cap=2)
+    d.start()
+    d.conv_card[100] = 0          # pin one conv to the display card, one to compute
+    d.conv_card[200] = 1
+    for p in d.ports:             # 2 already in-flight on each card
+        d.router.reserve(p); d.router.reserve(p)
+    disp = d.handle(100, "x", 8)  # display: cap=min(8,2)=2, inflight->3 > 2 => reject
+    comp = d.handle(200, "x", 8)  # compute: cap=8, inflight->3 <= 8 => admit
+    caps = (d.device_caps[0], d.device_caps[1])
+    d.stop()
+    print(f"    device_caps={caps}  display admitted={disp['admitted']}  "
+          f"compute admitted={comp['admitted']}")
+    fails += check("display card (dev0) capped at 2, compute (dev1) uncapped",
+                   caps == (2, None))
+    fails += check("display card sheds beyond its small cap", disp["admitted"] is False)
+    fails += check("compute card admits at the same in-flight level", comp["admitted"] is True)
+    return fails
+
+
+def _test_tdr_guard() -> int:
+    from denning.control import tdr_guard
+
+    fails = 0
+    print("\n[tdr_guard] delta / clean semantics (a run can't silently cross a TDR):")
+    g = tdr_guard.TdrGuard()
+    orig = tdr_guard.count_4101
+    try:
+        tdr_guard.count_4101 = lambda *a, **k: 4
+        g.arm()                                       # baseline = 4
+        fails += check("no new TDR => clean, not tripped",
+                       g.clean() is True and g.tripped() is False)
+        tdr_guard.count_4101 = lambda *a, **k: 5      # a reset happened
+        fails += check("a new TDR => tripped, not clean",
+                       g.tripped() is True and g.clean() is False)
+        tdr_guard.count_4101 = lambda *a, **k: None   # probe failed
+        fails += check("probe failure => NOT clean (no false assurance)",
+                       g.clean() is False and g.tripped() is False)
+    finally:
+        tdr_guard.count_4101 = orig
+    return fails
 
 
 def _test_daemon() -> int:

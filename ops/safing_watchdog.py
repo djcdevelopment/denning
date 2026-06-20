@@ -68,6 +68,13 @@ from ctypes import wintypes
 
 GIB = 1024 ** 3
 
+# Optional live display-TDR detector (feeds the PostTDR -> ABORT path below).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from denning.control.tdr_guard import count_4101
+except Exception:       # safety tool: never fail to start over a missing import
+    count_4101 = None
+
 # ---- decision levels (ordered) ------------------------------------------------
 OK, WARN, SAFE, ABORT = "OK", "WARN", "SAFE", "ABORT"
 _RANK = {OK: 0, WARN: 1, SAFE: 2, ABORT: 3}
@@ -254,6 +261,17 @@ def take_reading(args, t: Thresholds) -> dict:
         r["host_error"] = str(e)
     r["disk_c_free_gb"] = disk_c_free_gb()
 
+    if getattr(args, "watch_tdr", False) and count_4101 is not None:
+        c = count_4101()
+        if c is not None:
+            b = getattr(args, "_tdr_baseline", None)
+            if b is None:
+                args._tdr_baseline = b = c      # baseline on the first tick
+            r["tdr_count"] = c
+            r["tdr_baseline"] = b
+            if c > b:                            # a new display reset since arming
+                r["adapter_state"] = "PostTDR"   # -> evaluate() bumps ABORT
+
     if args.b70_dir:
         v = b70_verdict(args.b70_exe, args.b70_dir)
         r["verdict_rc"] = v.get("rc")
@@ -306,6 +324,8 @@ def main() -> int:
     ap.add_argument("--once", action="store_true", help="single sample, print, exit")
     ap.add_argument("--simulate", choices=sorted(SYNTH), help="inject one synthetic reading and decide")
     ap.add_argument("--log", help="append structured JSONL watchdog-log here")
+    ap.add_argument("--watch-tdr", action="store_true",
+                    help="poll Windows Event ID 4101; a new display TDR since arming => ABORT")
     ap.add_argument("--b70-dir", help="b70tools recording dir to consult via `verdict`")
     ap.add_argument("--b70-exe", default=r"D:\work\b70tools\build\b70tools.exe")
     ap.add_argument("--enforce", action="store_true", help="kill --child-pid on SAFE/ABORT (default: observe only)")
