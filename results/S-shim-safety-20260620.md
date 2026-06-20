@@ -1,5 +1,14 @@
 # Result — Safety harness: asymmetric caps + TDR guard + watchdog detector (2026-06-20)
 
+> ⚠️ **SUPERSEDED IN PART — the guard does NOT make display-card serving safe.** A
+> later device-0 sweep **hard-hung the machine** (manual reboot), and because a hard
+> hang logs **no Event 4101**, the TDR guard never fired. The asymmetric-cap idea is
+> void: the safe display-card cap is **0**, not 2. The guard/watchdog remain useful
+> for *headless-card* runs (recoverable TDRs, host-memory/commit/spill), but cannot
+> guard the display card. See [`display-card-hardhang-20260620.md`](display-card-hardhang-20260620.md).
+> The `--sweep` and `--display-cap 2` commands below are retained for history only and
+> now refuse / default to 0.
+
 *Built off-rig in response to the display-driver TDR incident
 ([`two-card-TDR-contamination-20260620`](two-card-TDR-contamination-20260620.md)).
 Two layers: **prevent** the display card from reaching the reset threshold

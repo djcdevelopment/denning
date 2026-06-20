@@ -68,6 +68,14 @@ asymmetric** — heavy on the headless compute card (Card B), with the display c
 compute/VRAM headroom. "Two cards = 2× by symmetric replication" is **false on a
 machine where one card drives the display.**
 
+## Escalation (later the same day)
+A device-0 sweep meant to find the "safe cap" instead **hard-hung the machine** (manual
+power-cycle, no TDR recovery). The conclusion is stronger than "asymmetric caps": the
+display card **cannot serve inference at all** on this rig (safe cap = 0), and the clean
+asymmetric two-card re-run proposed below **will not be run** — the configuration is
+unsafe to reproduce. See [`display-card-hardhang-20260620.md`](display-card-hardhang-20260620.md).
+The plan below is kept for the record; step 2 (re-run) is **cancelled**.
+
 ## Correction plan
 1. **[done]** File this notice; banner the affected result docs; flag the claims in `E1-SUMMARY.md`.
 2. **Re-run two-card ASYMMETRICALLY, under the I-1 safing watchdog**, with per-device N\* caps (Card B heavy; Card A a small reserved-headroom cap), watching Event-ID-4101 count = 0 as a pass condition. That becomes the *clean* two-card result.

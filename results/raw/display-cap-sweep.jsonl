@@ -1,0 +1,2 @@
+{"event": "sweep_start", "max_cap": 8, "sweep_cards": 1, "dry": false}
+{"display_cap": 1, "d0_admitted": 1, "d0_slo_met": 0, "d0_tbt_median_ms": null, "tdr": false, "tdr_delta": 0}

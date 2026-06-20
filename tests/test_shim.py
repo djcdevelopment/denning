@@ -139,6 +139,11 @@ def _test_asymmetric() -> int:
                    caps == (2, None))
     fails += check("display card sheds beyond its small cap", disp["admitted"] is False)
     fails += check("compute card admits at the same in-flight level", comp["admitted"] is True)
+
+    print("\n[daemon] SAFE DEFAULT: display card serves nothing (display_cap=0):")
+    safe = Daemon(FakeAdapter(), devices=[0, 1], live_budget=False)   # all defaults
+    fails += check("default excludes the display card (device 0) from serving",
+                   safe.serving_devices == [1] and 0 not in safe.serving_devices)
     return fails
 
 
@@ -173,7 +178,7 @@ def _test_daemon() -> int:
 
     fails = 0
     print("\n[daemon] wiring over a fake engine (2 cards, sequential):")
-    d = Daemon(FakeAdapter(), devices=[0, 1], slots=4, live_budget=False)
+    d = Daemon(FakeAdapter(), devices=[0, 1], slots=4, live_budget=False, display_device=None)
     d.start()
     res = [d.handle(c % 6, f"turn {i}", 16) for i, c in enumerate(range(16))]
     d.stop()
@@ -196,7 +201,7 @@ def _test_daemon() -> int:
     fails += check("returning convs hit resident KV (affinity pays off)", total_hits > 0)
 
     print("\n[daemon] admission sheds when the live budget is squeezed:")
-    d2 = Daemon(FakeAdapter(), devices=[0, 1], slots=8, live_budget=False,
+    d2 = Daemon(FakeAdapter(), devices=[0, 1], slots=8, live_budget=False, display_device=None,
                 controller=AdmissionController(compute_knee=2))   # N* = 2 / card
     d2.start()
     for p in d2.ports:                       # simulate 2 sessions already in-flight per card
@@ -209,7 +214,7 @@ def _test_daemon() -> int:
     fails += check("rejection counted", d2.rejected == 1)
 
     print("\n[daemon] concurrent handle_many (32 sessions, 16 workers, 2 cards):")
-    d3 = Daemon(FakeAdapter(), devices=[0, 1], slots=8, live_budget=False)
+    d3 = Daemon(FakeAdapter(), devices=[0, 1], slots=8, live_budget=False, display_device=None)
     d3.start()
     sessions = [(i % 10, f"t{i}", 8) for i in range(32)]   # 10 convs, 32 turns
     res3 = d3.handle_many(sessions, max_workers=16)

@@ -56,7 +56,7 @@ class Daemon:
                  slots: int = 8, ctx: int = 2048, policy: str = "classes",
                  swap: bool = True, controller: AdmissionController = None,
                  live_budget: bool = True, nominal_budget_gb: float = CARD_BUDGET_GB,
-                 display_device: int = 0, display_cap: int = 2):
+                 display_device: int = 0, display_cap: int = 0):
         self.adapter = adapter
         self.devices = list(devices)
         self.base_port = base_port
@@ -67,16 +67,20 @@ class Daemon:
         self.controller = controller or AdmissionController()
         self.live_budget = live_budget
         self.nominal_budget_gb = nominal_budget_gb
-        # ASYMMETRIC caps: the display card (device 0) drives the desktop compositor,
-        # a hard co-tenant. Loading it to the full compute knee reproducibly trips a
-        # WDDM display-driver TDR (results/two-card-TDR-contamination-20260620.md), so
-        # it is capped well below its raw throughput; headless cards run uncapped.
+        # The display card (device 0) drives the desktop compositor. On this rig,
+        # serving inference on it does NOT degrade gracefully: ONE session already
+        # produced no tokens and TWO hard-hung the whole box (no TDR recovery, manual
+        # reboot, 2026-06-20 -- results/display-card-hardhang-20260620.md). So the
+        # default is display_cap=0 = the display card SERVES NOTHING; only headless
+        # cards serve. `display_device=None` means "no display card here, serve all".
         self.display_device = display_device
         self.display_cap = display_cap
         self.device_caps = {d: (display_cap if d == display_device else None)
                             for d in self.devices}
-        self.ports = [base_port + d for d in self.devices]
-        self._port_device = {base_port + d: d for d in self.devices}
+        # cap == 0 => reserved, never spawned, never routed to.
+        self.serving_devices = [d for d in self.devices if self.device_caps.get(d) != 0]
+        self.ports = [base_port + d for d in self.serving_devices]
+        self._port_device = {base_port + d: d for d in self.serving_devices}
         self.router = ReplicaRouter(self.ports)
         self.replicas: dict = {}
         self.conv_card: dict = {}        # conv -> device (session affinity)
@@ -88,7 +92,7 @@ class Daemon:
 
     # --- lifecycle ---------------------------------------------------------
     def start(self) -> None:
-        for d in self.devices:
+        for d in self.serving_devices:          # cap-0 (display) devices are never spawned
             port = self.base_port + d
             h = self.adapter.spawn_replica(d, port, self.slots, self.slots * self.ctx)
             if not self.adapter.health(port, 300):
@@ -180,8 +184,10 @@ class Daemon:
 def _dry_run() -> int:
     """Wire the daemon over a fake engine (no GPU) and serve a tiny round-robin batch."""
     from tests.test_shim import FakeAdapter
+    # display_device=None: no real display here (FakeAdapter), so both cards serve and
+    # the routing demo still shows 2-card behavior. On-rig, device 0 is excluded.
     d = Daemon(FakeAdapter(), devices=[0, 1], slots=4, live_budget=False,
-               nominal_budget_gb=CARD_BUDGET_GB)
+               nominal_budget_gb=CARD_BUDGET_GB, display_device=None)
     d.start()
     out = [d.handle(c, f"turn for conv {c}", 16) for c in [1, 2, 1, 3, 2, 4]]
     d.stop()
@@ -198,7 +204,7 @@ def _watchdog_path() -> str:
                         "ops", "safing_watchdog.py")
 
 
-def _serve(cards: int, n: int, display_cap: int = 2, guard_on: bool = True,
+def _serve(cards: int, n: int, display_cap: int = 0, guard_on: bool = True,
            watchdog_on: bool = True) -> int:
     from collections import Counter
 
@@ -243,6 +249,8 @@ def _serve(cards: int, n: int, display_cap: int = 2, guard_on: bool = True,
     tdr_after = guard.current() if guard else None
     clean = guard.clean() if guard else None
     out = {"cards": cards, "n": n, "display_cap": display_cap,
+           "serving_devices": d.serving_devices,
+           "display_card_excluded": d.display_device not in d.serving_devices,
            "admitted": len(admitted), "slo_met": len(met), "rejected": d.rejected,
            "by_card": dict(by_card),
            "tbt_median_ms": tbts[len(tbts) // 2] if tbts else None,
@@ -271,10 +279,22 @@ def _append_durable(path: str, obj: dict) -> None:
         pass
 
 
-def _sweep(max_cap: int = 8, sweep_cards: int = 1, dry: bool = False) -> int:
-    r"""Ramp display-card (device 0) concurrency 1..max_cap under the TDR guard; stop at
-    the first reset. The last clean cap is the safe headroom. Crash-durable: each step is
-    fsync'd to SWEEP_LOG before the next, because the ceiling step may blank the display."""
+def _sweep(max_cap: int = 8, sweep_cards: int = 1, dry: bool = False,
+           force: bool = False) -> int:
+    r"""Ramp display-card (device 0) concurrency under the TDR guard. SUPERSEDED: the run
+    of 2026-06-20 answered this -- device 0 hard-hangs (cap=1 produced no tokens, cap=2
+    locked the box, manual reboot, NO TDR recovery so the guard was blind). The display
+    card serves nothing; the safe cap is 0. This refuses to touch device 0 unless --dry-run
+    (FakeAdapter, no GPU) or an explicit --force-display-unsafe (do not)."""
+    if not dry and not force:
+        print(json.dumps({
+            "refused": "Display-card serving HARD-HANGS this rig -- known result, do not re-run.",
+            "evidence": "cap=1 no tokens, cap=2 locked the box + manual reboot 2026-06-20; "
+                        "no Event-4101 recovery (guard cannot see a hard hang).",
+            "safe_policy": "display_cap=0 (display card serves nothing); serve on Card B only.",
+            "see": "results/display-card-hardhang-20260620.md",
+            "override": "--force-display-unsafe (NOT recommended; risks another hard reboot)"}, indent=2))
+        return 0
     from denning.control.tdr_guard import TdrGuard
     prompt = ("Explain virtual memory, demand paging, the TLB, and page replacement "
               "in a few precise paragraphs.")
@@ -351,8 +371,9 @@ def main() -> int:
     ap.add_argument("--serve", action="store_true", help="on-rig: real replicas")
     ap.add_argument("--cards", type=int, choices=[1, 2], default=2)
     ap.add_argument("--n", type=int, default=16)
-    ap.add_argument("--display-cap", type=int, default=2,
-                    help="max concurrent sessions on the display card (device 0); keeps it out of TDR territory")
+    ap.add_argument("--display-cap", type=int, default=0,
+                    help="concurrent sessions allowed on the display card (device 0). DEFAULT 0 = "
+                         "serves nothing (it hard-hangs this rig). >0 is unsafe here.")
     ap.add_argument("--no-guard", action="store_true", help="skip the TDR pre/post integrity check")
     ap.add_argument("--no-watchdog", action="store_true", help="do not launch the I-1 safing watchdog")
     ap.add_argument("--sweep", action="store_true",
@@ -360,9 +381,12 @@ def main() -> int:
     ap.add_argument("--max-cap", type=int, default=8, help="top of the display-cap sweep")
     ap.add_argument("--sweep-cards", type=int, choices=[1, 2], default=1,
                     help="1 = display card solo (cleanest); 2 = also load Card B at full")
+    ap.add_argument("--force-display-unsafe", action="store_true",
+                    help="override the display-card-hardhang refusal (NOT recommended -- risks a hard reboot)")
     args = ap.parse_args()
     if args.sweep:
-        return _sweep(args.max_cap, args.sweep_cards, dry=args.dry_run)
+        return _sweep(args.max_cap, args.sweep_cards, dry=args.dry_run,
+                      force=args.force_display_unsafe)
     if args.serve:
         return _serve(args.cards, args.n, args.display_cap,
                       guard_on=not args.no_guard, watchdog_on=not args.no_watchdog)
