@@ -20,6 +20,16 @@ On a fabric-less, RAM-inverted, OS-arbitrated GPU box (Windows/VidMm, PCIe-only 
 
 The cost-model core (R1–R3) and the admission roofline (H2′) are **already measured on-rig** ([`results/E1-SUMMARY.md`](results/E1-SUMMARY.md)) — run *ahead* of formal G0 but under the one rule: the predictions were git-committed (`1118d0c`) **before** the data (`2d19b09`+). G0 — the advisor-lens methodology pass, applied by the maintainer (the "advisor" is a viewpoint, not a third party) — is now cleared, and the still-**untested** forward predictions (**H1′, H4, H5′, H6**) are git-tagged **`prereg-launch-suppositions`** before their experiments run. Next: build the **I-1 VidMm-eviction watchdog**, then run **H1**.
 
+## Results at a glance
+
+<p align="center">
+  <img src="figures/decode-roofline.png" width="32%" alt="Decode roofline — the long-context cliff" />
+  <img src="figures/i4b-admission-knee.png" width="32%" alt="Admission knee — goodput collapses past N*=8" />
+  <img src="figures/moe-vs-dense.png" width="32%" alt="MoE vs dense — 5.7x faster decode" />
+</p>
+
+*Left: decode falls 11.5× by 64K context (the Vulkan attention cliff). Middle: goodput peaks at N\*=8 concurrent sessions — over-admission collapses both goodput and throughput. Right: the MoE streams ~3B active params and decodes 5.7× faster than a dense 32B. All regenerate from measured constants via [`figures/make_figures.py`](figures/make_figures.py).*
+
 ## The one rule
 
 **Predictions are committed (git-tagged) before any data is collected.** See [`prereg/`](prereg/). A refuted prediction is a *success of the method*. Results ([`results/`](results/)) are committed *after* the matching prereg is tagged, and open with a predicted-vs-actual table. The git history is the integrity proof — it is physically impossible to retrofit a prediction to a result.

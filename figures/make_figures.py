@@ -65,5 +65,113 @@ def h1_demotion_cliff():
     print("wrote", out)
 
 
+def decode_roofline():
+    """The long-context decode cliff (results/E1-SUMMARY.md, H2')."""
+    ctx = [0, 8, 16, 32, 64]                  # K tokens
+    tps = [132.8, 74.3, 58.2, 38.0, 11.5]     # decode t/s
+
+    fig, ax = plt.subplots(figsize=(7.6, 4.4), dpi=160)
+    fig.subplots_adjust(left=0.1, right=0.96, top=0.83, bottom=0.14)
+    ax.axvspan(40, 66, color=CORAL, alpha=0.06)
+    ax.plot(ctx, tps, "-o", color=BLUE, lw=2.4, ms=7, zorder=3)
+    ax.set_xlabel("context length (K tokens)", fontsize=10.5)
+    ax.set_ylabel("decode throughput (t/s)", fontsize=10.5)
+    ax.set_ylim(0, 148)
+    ax.set_xlim(-2, 66)
+    ax.grid(True, color="#dddddd", lw=0.6)
+    ax.set_axisbelow(True)
+    for x, y in zip(ctx, tps):
+        ax.annotate(f"{y:.0f}", (x, y), textcoords="offset points", xytext=(0, 9),
+                    fontsize=8.5, color=BLUE, ha="center")
+    ax.annotate("11.5× slower\nthan empty", xy=(64, 11.5), xytext=(49, 56),
+                fontsize=9.5, color=CORAL, ha="center",
+                arrowprops=dict(arrowstyle="->", color=CORAL, lw=1.2))
+    fig.suptitle("Decode roofline: the long-context cliff", fontsize=13, y=0.95)
+    ax.set_title("Qwen3-30B-A3B · one Arc Pro B70 · Vulkan · denning H2′",
+                 fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "decode-roofline.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
+def i4b_admission_knee():
+    """The N-session goodput knee (results/I4b-admission-knee-20260619.md)."""
+    N = [6, 8, 10, 12]
+    goodput = [6, 8, 0, 0]
+    agg = [217, 229, 67.5, 78]
+    labels = [str(n) for n in N]
+
+    fig, ax1 = plt.subplots(figsize=(7.6, 4.4), dpi=160)
+    fig.subplots_adjust(left=0.09, right=0.9, top=0.83, bottom=0.14)
+    bars = ax1.bar(labels, goodput, color=BLUE, width=0.55, zorder=2,
+                   label="sessions meeting SLO")
+    ax1.set_xlabel("concurrent sessions (N)", fontsize=10.5)
+    ax1.set_ylabel("goodput (sessions meeting SLO)", color=BLUE, fontsize=10.5)
+    ax1.tick_params(axis="y", labelcolor=BLUE)
+    ax1.set_ylim(0, 13)
+    for b, g in zip(bars, goodput):
+        ax1.annotate(str(g), (b.get_x() + b.get_width() / 2, g),
+                     textcoords="offset points", xytext=(0, 4), ha="center",
+                     fontsize=9, color=BLUE)
+    ax2 = ax1.twinx()
+    ax2.plot(labels, agg, "--D", color=CORAL, lw=2.2, ms=6, label="aggregate throughput")
+    ax2.set_ylabel("aggregate decode (t/s)", color=CORAL, fontsize=10.5)
+    ax2.tick_params(axis="y", labelcolor=CORAL)
+    ax2.set_ylim(0, 260)
+    ax1.annotate("N* = 8", xy=(1, 8), xytext=(1, 11.4), fontsize=11.5, color=BLUE, ha="center")
+    h1, l1 = ax1.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax1.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=9, frameon=False)
+    fig.suptitle("Admission knee: over-admitting collapses goodput and throughput",
+                 fontsize=11.5, y=0.95)
+    ax1.set_title("N concurrent sessions · Qwen3-30B-A3B · Vulkan · denning I-4b",
+                  fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "i4b-admission-knee.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
+def moe_vs_dense():
+    """MoE vs dense decode/prefill (results/E1-moe-vs-dense-20260619.md)."""
+    import numpy as np
+    groups = ["prefill (pp512)", "decode (tg128)"]
+    moe = [1500.6, 130.3]
+    dense = [513.7, 23.0]
+    x = np.arange(len(groups))
+    w = 0.34
+
+    fig, ax = plt.subplots(figsize=(7.0, 4.4), dpi=160)
+    fig.subplots_adjust(left=0.12, right=0.96, top=0.83, bottom=0.11)
+    b1 = ax.bar(x - w / 2, moe, w, color=BLUE, label="MoE — Qwen3-30B-A3B (3B active)")
+    b2 = ax.bar(x + w / 2, dense, w, color=CORAL, label="dense — Qwen2.5-32B")
+    ax.set_xticks(x)
+    ax.set_xticklabels(groups, fontsize=10)
+    ax.set_ylabel("throughput (t/s)", fontsize=10.5)
+    ax.set_ylim(0, 1720)
+    for bars in (b1, b2):
+        for b in bars:
+            ax.annotate(f"{b.get_height():.0f}",
+                        (b.get_x() + b.get_width() / 2, b.get_height()),
+                        textcoords="offset points", xytext=(0, 3), ha="center", fontsize=8.5)
+    ax.annotate("5.7× faster decode", xy=(1 - w / 2, 130), xytext=(0.45, 720),
+                fontsize=10, color=BLUE,
+                arrowprops=dict(arrowstyle="->", color=BLUE, lw=1.2))
+    ax.legend(fontsize=9, frameon=False, loc="upper right")
+    ax.grid(True, axis="y", color="#dddddd", lw=0.6)
+    ax.set_axisbelow(True)
+    fig.suptitle("MoE streams fewer active params: 5.7× faster decode", fontsize=12, y=0.95)
+    ax.set_title("equal ~32B total, Q4, one Arc Pro B70 · Vulkan · denning",
+                 fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "moe-vs-dense.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
+    decode_roofline()
+    i4b_admission_knee()
+    moe_vs_dense()
