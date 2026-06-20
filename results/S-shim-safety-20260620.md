@@ -31,6 +31,20 @@ This is the run to do when the operator is ready — heavy on Card B, light on t
 display card, watched, and self-invalidating if it ever crosses a reset. The clean
 number it produces *replaces* the retracted symmetric `two-card-goodput`.
 
+## Finding the safe display cap (the sweep)
+`cap=2` is a conservative guess, not a measurement — we have no TDR-free data on the
+display card under load. The sweep ramps device-0 concurrency under the guard and stops
+at the first reset; the last clean cap is the safe headroom. **Crash-durable:** each step
+is fsync'd to `results/raw/display-cap-sweep.jsonl` *before* the next, because the ceiling
+step is expected to reset the display (and may blank the app) — the data survives it.
+```
+python -m denning.denningd --sweep --sweep-cards 1 --max-cap 8     # display card SOLO (cleanest)
+python -m denning.denningd --sweep --dry-run                        # no GPU: verify the ramp
+```
+Solo (device 0 only) isolates the display card's threshold from Card B. Costs ~1 display
+reset by design (the step that crosses the ceiling). Per-step output: `display_cap`,
+`d0_slo_met`, `d0_tbt_median_ms`, `tdr`, `tdr_delta`.
+
 ## Process fix
 The original two-card runs executed **without** the watchdog (it was only wired into
 the H1 hog experiments). Rule, now enforced by `--serve`'s defaults: **no display-card

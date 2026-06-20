@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import statistics
 import subprocess
 import sys
 import threading
@@ -254,6 +255,96 @@ def _serve(cards: int, n: int, display_cap: int = 2, guard_on: bool = True,
     return 4 if clean is False else 0
 
 
+SWEEP_LOG = r"D:\work\denning\results\raw\display-cap-sweep.jsonl"
+
+
+def _append_durable(path: str, obj: dict) -> None:
+    """Write one JSON line and flush+fsync immediately -- the ceiling step will likely
+    reset the display and may kill the terminal, so every step must survive on disk."""
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(obj) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+    except OSError:
+        pass
+
+
+def _sweep(max_cap: int = 8, sweep_cards: int = 1, dry: bool = False) -> int:
+    r"""Ramp display-card (device 0) concurrency 1..max_cap under the TDR guard; stop at
+    the first reset. The last clean cap is the safe headroom. Crash-durable: each step is
+    fsync'd to SWEEP_LOG before the next, because the ceiling step may blank the display."""
+    from denning.control.tdr_guard import TdrGuard
+    prompt = ("Explain virtual memory, demand paging, the TLB, and page replacement "
+              "in a few precise paragraphs.")
+    if dry:
+        from tests.test_shim import FakeAdapter
+        adapter, watchdog_on = FakeAdapter(), False
+    else:
+        from denning.engine.llamacpp import LlamaCppAdapter
+        adapter, watchdog_on = LlamaCppAdapter(), True
+    devices = [0] if sweep_cards == 1 else [0, 1]
+
+    guard = TdrGuard()
+    wd = None
+    if watchdog_on:
+        try:
+            wd = subprocess.Popen([sys.executable, _watchdog_path(), "--interval", "3",
+                                   "--watch-tdr", "--log",
+                                   r"D:\work\denning\results\raw\display-sweep.watchdog.jsonl"],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            wd = None
+
+    d = Daemon(adapter, devices=devices, slots=max_cap, ctx=2048, policy="classes",
+               swap=True, live_budget=not dry, display_device=0, display_cap=max_cap)
+    d.start()
+    _append_durable(SWEEP_LOG, {"event": "sweep_start", "max_cap": max_cap,
+                                "sweep_cards": sweep_cards, "dry": dry})
+    safe, ceiling, rows = 0, None, []
+    try:
+        for cap in range(1, max_cap + 1):
+            guard.arm()
+            sess = [(cap * 1000 + i, prompt, 64) for i in range(cap)]   # cap fresh on device 0
+            for cid, _, _ in sess:
+                d.conv_card[cid] = 0
+            if sweep_cards == 2:                                        # constant load on Card B
+                for i in range(max_cap):
+                    cid = cap * 1000 + 500 + i
+                    d.conv_card[cid] = 1
+                    sess.append((cid, prompt, 64))
+            res = d.handle_many(sess, max_workers=len(sess))
+            d0 = [r for r in res if r.get("device") == 0 and r["admitted"]]
+            t0 = [r["tbt_median_ms"] for r in d0 if r.get("tbt_median_ms")]
+            tripped = guard.tripped()
+            row = {"display_cap": cap, "d0_admitted": len(d0),
+                   "d0_slo_met": sum(1 for r in d0 if (r.get("tbt_median_ms") or 1e9) <= 50.0),
+                   "d0_tbt_median_ms": round(statistics.median(t0), 1) if t0 else None,
+                   "tdr": tripped, "tdr_delta": guard.delta()}
+            rows.append(row)
+            _append_durable(SWEEP_LOG, row)
+            print(json.dumps(row))
+            if tripped:
+                ceiling = cap
+                print(f"*** TDR at display_cap={cap} -> SAFE display_cap = {safe} ***")
+                break
+            safe = cap
+    finally:
+        d.stop()
+        if wd and wd.poll() is None:
+            wd.terminate()
+            try:
+                wd.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                wd.kill()
+    summary = {"event": "sweep_done", "safe_display_cap": safe, "ceiling_cap": ceiling,
+               "sweep_cards": sweep_cards, "rows": rows}
+    _append_durable(SWEEP_LOG, summary)
+    print(json.dumps(summary, indent=2))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="denningd -- co-residency control loop (S-shim-2)")
     ap.add_argument("--dry-run", action="store_true", help="no-GPU wiring over a fake engine")
@@ -264,7 +355,14 @@ def main() -> int:
                     help="max concurrent sessions on the display card (device 0); keeps it out of TDR territory")
     ap.add_argument("--no-guard", action="store_true", help="skip the TDR pre/post integrity check")
     ap.add_argument("--no-watchdog", action="store_true", help="do not launch the I-1 safing watchdog")
+    ap.add_argument("--sweep", action="store_true",
+                    help="ramp display-card concurrency under the guard until a TDR; find the safe cap")
+    ap.add_argument("--max-cap", type=int, default=8, help="top of the display-cap sweep")
+    ap.add_argument("--sweep-cards", type=int, choices=[1, 2], default=1,
+                    help="1 = display card solo (cleanest); 2 = also load Card B at full")
     args = ap.parse_args()
+    if args.sweep:
+        return _sweep(args.max_cap, args.sweep_cards, dry=args.dry_run)
     if args.serve:
         return _serve(args.cards, args.n, args.display_cap,
                       guard_on=not args.no_guard, watchdog_on=not args.no_watchdog)
