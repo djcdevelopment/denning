@@ -88,7 +88,7 @@ On live inference, lifetime classes beat LRU by **+32%** goodput-under-SLO (10 r
 > ![S1 swap: refetch-on-miss (84 ms) beats re-prefill (2.4 s), +33% goodput.](../figures/h4-swap.png)
 > **Figure 4.** Paying a cache miss as a *refetch* (restore the saved KV) instead of a *recompute* (re-prefill it). On real KV: restore = 84 ms, re-prefill = 2422 ms — ~29×. The swap arena gets +33% goodput and −23% latency.
 
-The cost model's linchpin (R1) is that a refetch beats a recompute. We measure it on real KV: restoring a saved 3,507-token KV cache from disk takes **84 ms**; re-prefilling it takes **2,422 ms** — **~29×** (and the KV is 98 KB/token, measured). Paying a miss as a swap-restore instead of a re-prefill yields **+33%** goodput.
+The cost model's linchpin (R1) is that a refetch beats a recompute. We measure it on real KV: restoring a saved 3,507-token KV cache takes **84 ms** while re-prefilling it takes **2,422 ms** — **~29×** (KV is 98 KB/token, measured). And the advantage *grows with context*: restore is bandwidth-bound (~4 GB/s, linear in KV) while re-prefill is superlinear (attention), so the ratio climbs from 22× at 1k tokens to **75× at 14k** — where re-prefilling costs 24.7 s against restore's 0.33 s. Paying a miss as a swap-restore instead of a re-prefill yields **+33%** goodput.
 
 The surprise is what this does to §4.2. **Once swap is cheap, the eviction *policy* stops mattering**: lifetime-class and LRU achieve identical goodput, because a "wrong" eviction is no longer a 2.4 s catastrophe — it is an 84 ms restore. The R1 lever **subsumes** the policy lever. The strategic implication for any system on this substrate: build the cheap swap path *first*; the sophistication of the eviction policy is second-order once misses are cheap.
 

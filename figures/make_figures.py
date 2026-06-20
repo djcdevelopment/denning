@@ -330,6 +330,34 @@ def s1_swap():
     print("wrote", out)
 
 
+def swap_cost_curve():
+    """Swap cost vs KV size: refetch's advantage grows with context (results/S1b-swap-cost-curve-20260619.md)."""
+    ctx = [0.877, 1.759, 3.509, 7.009, 14.010]
+    reprefill = [442, 957, 2383, 7190, 24718]
+    restore = [20.1, 38.9, 79.1, 159.0, 328.2]
+
+    fig, ax = plt.subplots(figsize=(7.4, 4.5), dpi=160)
+    fig.subplots_adjust(left=0.12, right=0.95, top=0.83, bottom=0.14)
+    ax.plot(ctx, reprefill, "--s", color=CORAL, lw=2.2, ms=6, label="re-prefill on miss (recompute)")
+    ax.plot(ctx, restore, "-o", color=BLUE, lw=2.4, ms=6, label="restore / swap on miss (refetch)")
+    ax.set_yscale("log")
+    ax.set_xlabel("context length (K tokens)", fontsize=10.5)
+    ax.set_ylabel("cost of a cache miss (ms, log scale)", fontsize=10.5)
+    ax.grid(True, which="both", color="#dddddd", lw=0.5)
+    ax.set_axisbelow(True)
+    ax.annotate("22× cheaper", xy=(0.877, 95), fontsize=9, color=BLUE, ha="left")
+    ax.annotate("75× cheaper", xy=(14.010, 2600), fontsize=9, color=BLUE, ha="right")
+    ax.text(7.0, 18, "refetch: ~4 GB/s, linear in KV", fontsize=8.6, color=BLUE, ha="center")
+    ax.legend(fontsize=9, frameon=False, loc="center left")
+    fig.suptitle("Refetch beats recompute — and the gap grows with context", fontsize=12, y=0.95)
+    ax.set_title("KV swap (restore) vs re-prefill (superlinear attention) · real KV, ~96 KB/tok · denning",
+                 fontsize=8.4, color=GREY, pad=8)
+    out = os.path.join(HERE, "swap-cost-curve.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
     decode_roofline()
@@ -340,3 +368,4 @@ if __name__ == "__main__":
     h4_onrig()
     h4_blockgrained()
     s1_swap()
+    swap_cost_curve()
