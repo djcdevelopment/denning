@@ -157,6 +157,26 @@ def _test_daemon() -> int:
           f"-> admitted={rej['admitted']} ({rej.get('reason','')})")
     fails += check("session beyond N* is rejected", rej["admitted"] is False)
     fails += check("rejection counted", d2.rejected == 1)
+
+    print("\n[daemon] concurrent handle_many (32 sessions, 16 workers, 2 cards):")
+    d3 = Daemon(FakeAdapter(), devices=[0, 1], slots=8, live_budget=False)
+    d3.start()
+    sessions = [(i % 10, f"t{i}", 8) for i in range(32)]   # 10 convs, 32 turns
+    res3 = d3.handle_many(sessions, max_workers=16)
+    d3.stop()
+    admitted3 = [r for r in res3 if r["admitted"]]
+    served3 = sum(s["hits"] + s["restores"] + s["reprefills"]
+                  for s in d3.stats()["replicas"].values())
+    print(f"    {len(res3)} returned, {len(admitted3)} admitted, {d3.rejected} rejected, "
+          f"{served3} arena turns")
+    fails += check("no lost sessions: admitted + rejected == 32",
+                   len(res3) == 32 and len(admitted3) + d3.rejected == 32)
+    fails += check("arena turns == admitted (no double/lost access under threads)",
+                   served3 == len(admitted3))
+    cc = {}
+    for r in res3:
+        cc.setdefault(r["conv"], set()).add(r["device"])
+    fails += check("affinity holds under concurrency", all(len(c) == 1 for c in cc.values()))
     return fails
 
 

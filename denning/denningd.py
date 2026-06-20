@@ -28,6 +28,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -68,6 +70,9 @@ class Daemon:
         self.conv_card: dict = {}        # conv -> device (session affinity)
         self.rejected = 0
         self._rr = 0
+        self._lock = threading.Lock()    # guards the fast routing/arena bookkeeping
+        self._budget_cache: dict = {}    # device -> (gb, t); the slow probe, TTL-cached
+        self._budget_ttl = 2.0
 
     # --- lifecycle ---------------------------------------------------------
     def start(self) -> None:
@@ -100,26 +105,39 @@ class Daemon:
         return port
 
     def _budget(self, device: int) -> float:
-        if self.live_budget:
-            b = budgetmod.read_live_budget_gb(device)
-            if b is not None:
-                return b
-        return self.nominal_budget_gb
+        """Live VidMm budget, TTL-cached. Read OUTSIDE the bookkeeping lock -- the
+        probe shells out (~1 s), too slow to serialize every request behind."""
+        if not self.live_budget:
+            return self.nominal_budget_gb
+        now = time.time()
+        cached = self._budget_cache.get(device)
+        if cached and now - cached[1] < self._budget_ttl:
+            return cached[0]
+        b = budgetmod.read_live_budget_gb(device)
+        b = b if b is not None else self.nominal_budget_gb
+        self._budget_cache[device] = (b, now)
+        return b
 
     def handle(self, conv, prompt: str, n_predict: int = 64) -> dict:
-        port = self._route(conv)
-        device = self._port_device[port]
-        budget = self._budget(device)
-        cap = self.controller.capacity(budget)
-        if self.router.inflight[port] > cap:        # over N* for the live budget -> shed
-            self.router.release(port)
-            self.rejected += 1
-            return {"conv": conv, "admitted": False, "device": device, "port": port,
-                    "budget_gb": round(budget, 2), "capacity": cap,
-                    "reason": "over N* for live budget"}
-        try:
+        # Warm the TTL budget cache OUTSIDE the lock (the probe shells out ~1 s; never
+        # under the lock). Then route + admit + slot-assign under the lock (fast,
+        # in-memory) -- only the shared bookkeeping is guarded; the stream runs free.
+        for d in self.devices:
+            self._budget(d)
+        with self._lock:
+            port = self._route(conv)
+            device = self._port_device[port]
+            budget = self._budget(device)           # cache hit (warmed above)
+            cap = self.controller.capacity(budget)
+            if self.router.inflight[port] > cap:    # over N* for the live budget -> shed
+                self.router.release(port)
+                self.rejected += 1
+                return {"conv": conv, "admitted": False, "device": device, "port": port,
+                        "budget_gb": round(budget, 2), "capacity": cap,
+                        "reason": "over N* for live budget"}
             rep = self.replicas[device]
-            slot, action = rep.arena.access(conv)
+            slot, action = rep.arena.access(conv)   # KV move via adapter, per-replica serialized
+        try:
             stats = self.adapter.stream(port, prompt, n_predict, slot=slot,
                                         cache_prompt=True, label=f"conv{conv}")
             return {"conv": conv, "admitted": True, "device": device, "port": port,
@@ -127,7 +145,8 @@ class Daemon:
                     "capacity": cap, "ttft_ms": stats.ttft_ms,
                     "tbt_median_ms": stats.tbt_median_ms, "decode_tps": stats.decode_tps}
         finally:
-            self.router.release(port)
+            with self._lock:
+                self.router.release(port)
 
     def handle_many(self, sessions, max_workers: int = None) -> list:
         """Serve (conv, prompt, n_predict) tuples concurrently across the replicas."""
