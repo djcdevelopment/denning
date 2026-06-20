@@ -38,6 +38,10 @@ class ReplicaRouter:
         self.inflight[port] += 1
         return port
 
+    def reserve(self, port: int) -> None:
+        """Mark a session in-flight on `port` (admission accounting)."""
+        self.inflight[port] = self.inflight.get(port, 0) + 1
+
     def release(self, port: int) -> None:
         if self.inflight.get(port, 0) > 0:
             self.inflight[port] -= 1
