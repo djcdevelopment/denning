@@ -1,0 +1,52 @@
+{
+  "ts": 1781917296,
+  "variant": "resident-server",
+  "model": "Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf",
+  "armed": true,
+  "hog_cap_gb": 16.0,
+  "baseline": {
+    "label": "baseline",
+    "tokens": 121,
+    "ttft_ms": 112.3,
+    "tbt_median_ms": 8.49,
+    "tbt_p95_ms": 8.59,
+    "decode_tps": 118.55
+  },
+  "hog_trace": [
+    "[hog] target xpu:1 | cap 16.0 GB, step 1.0 GB | card free 13.92/31.23 GB before",
+    "[hog] +1.0 -> 1.0 GB resident | card free 12.67 GB",
+    "[hog] +1.0 -> 2.0 GB resident | card free 11.67 GB",
+    "[hog] +1.0 -> 3.0 GB resident | card free 10.67 GB",
+    "[hog] +1.0 -> 4.0 GB resident | card free 9.67 GB",
+    "[hog] +1.0 -> 5.0 GB resident | card free 8.67 GB",
+    "[hog] +1.0 -> 6.0 GB resident | card free 7.67 GB",
+    "[hog] +1.0 -> 7.0 GB resident | card free 6.67 GB",
+    "[hog] +1.0 -> 8.0 GB resident | card free 5.67 GB",
+    "[hog] +1.0 -> 9.0 GB resident | card free 4.67 GB",
+    "[hog] +1.0 -> 10.0 GB resident | card free 3.67 GB",
+    "[hog] +1.0 -> 11.0 GB resident | card free 2.67 GB",
+    "[hog] +1.0 -> 12.0 GB resident | card free 1.67 GB",
+    "[hog] +1.0 -> 13.0 GB resident | card free 0.67 GB",
+    "[hog] +1.0 -> 14.0 GB resident | card free 0.92 GB",
+    "[hog] +1.0 -> 15.0 GB resident | card free 1.03 GB",
+    "[hog] +1.0 -> 16.0 GB resident | card free 0.28 GB",
+    "[hog] HOLDING 16.0 GB for 180.0s (watch the server's non_local / TBT now) ..."
+  ],
+  "pressured": {
+    "label": "pressured",
+    "tokens": 121,
+    "ttft_ms": 745.2,
+    "tbt_median_ms": 43.36,
+    "tbt_p95_ms": 43.48,
+    "decode_tps": 23.25
+  },
+  "analysis": {
+    "local_peak_gb": 31.584,
+    "nonlocal_start_gb": 0.236,
+    "nonlocal_peak_gb": 2.696,
+    "nonlocal_delta_gb": 2.695,
+    "pdh_samples": 6
+  },
+  "decode_ratio": 0.196,
+  "pilot_verdict": "H1-SUPPORTED-resident"
+}

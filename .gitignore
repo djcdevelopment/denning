@@ -16,7 +16,7 @@ results/raw/*.npz
 results/raw/*.csv.gz
 
 # === H1 pilot run artifacts (recordings transient; commit the result *doc* deliberately) ===
-results/raw/h1-*/
+results/raw/h1*-*/
 results/raw/*.watchdog.jsonl
 
 # === Caches (these MUST be redirected to D: anyway — never let them land on C:) ===

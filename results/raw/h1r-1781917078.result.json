@@ -1,0 +1,22 @@
+{
+  "ts": 1781917078,
+  "variant": "resident-server",
+  "model": "Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf",
+  "armed": false,
+  "hog_cap_gb": 0,
+  "baseline": {
+    "label": "baseline",
+    "tokens": 65,
+    "ttft_ms": 112.4,
+    "tbt_median_ms": 8.48,
+    "tbt_p95_ms": 8.56,
+    "decode_tps": 119.24
+  },
+  "analysis": {
+    "local_peak_gb": 17.871,
+    "nonlocal_start_gb": 0.204,
+    "nonlocal_peak_gb": 0.23,
+    "nonlocal_delta_gb": 0.23,
+    "pdh_samples": 4
+  }
+}
