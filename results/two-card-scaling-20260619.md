@@ -1,5 +1,14 @@
 # Result — Two-card replica scaling: the fabric-less box scales ~2× (2026-06-19)
 
+> ⚠️ **PROVISIONAL — re-confirm under monitoring (2026-06-20).** The symmetric
+> two-card configuration is now known to **reproducibly trip a display-driver TDR**
+> (Event ID 4101, `igfxnd`). This specific `llama-bench` run (committed 23:29:28) has
+> **no TDR logged in its window** — the first reset was at 23:45:59, during the
+> *later, heavier* goodput run — so these numbers are likely clean, but they ran one
+> concurrency-step below the load that resets the driver. Treat the 1.96× as
+> provisional pending a watchdog-monitored **asymmetric** re-run. Context:
+> [`two-card-TDR-contamination-20260620.md`](two-card-TDR-contamination-20260620.md).
+
 *The headline thesis test. On a fabric-less dual-B70 box (no GPU P2P on Windows), does running a **replica per card** scale agent serving? `llama-bench` (Qwen3-30B-A3B MoE Q4), per-card solo vs both-concurrent. Card A drives the display; Card B is the idle compute card.*
 
 ![Two-card scaling — 1.96× aggregate decode by replication, no contention](../figures/two-card-scaling.png)

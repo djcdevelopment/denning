@@ -1,5 +1,12 @@
 # Result — Two-card N-session goodput: the SLO-flavored 2× (2026-06-19)
 
+> ⚠️ **RETRACTED AS A CLEAN MEASUREMENT (2026-06-20).** This run was collected
+> across **two Windows display-driver TDRs** (Event ID 4101, `igfxnd`, at 23:45:59
+> and 23:48:18 — inside this run's window). The numbers below crossed display-driver
+> resets and must **not** be reported as a clean result. The symmetric two-card load
+> reproducibly trips a TDR; see [`two-card-TDR-contamination-20260620.md`](two-card-TDR-contamination-20260620.md).
+> A clean number requires an **asymmetric** re-run under the safing watchdog.
+
 *The thesis metric — many concurrent agent **sessions meeting an SLO**, across 1 vs 2 cards (replica per card). N streaming sessions round-robined across the cards; goodput = sessions with TBT_median ≤ 50 ms AND TTFT ≤ 2 s. Harness: [`../experiments/h4_twocard.py`](../experiments/h4_twocard.py).*
 
 ![Two cards double the agent-session capacity at SLO: N* goes 8 → 16](../figures/two-card-goodput.png)
