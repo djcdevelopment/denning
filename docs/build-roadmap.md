@@ -31,7 +31,7 @@ Division of labor: I scaffold harnesses, draft prereg cards, write the cost-mode
 **Gate G1 (advisor):** review E1; proceed/pivot. → draft + submit the HotOS position paper.
 
 ## I-3 — Pinned deterministic arena (the substrate) + H1 lock-respect
-- **Build:** fixed-size, max-residency, uniform-block arena with internal rotation, on one card (D3D12 `MakeResident`/`SetResidencyPriority`).
+- **Build:** fixed-size, max-residency, uniform-block arena with internal rotation, on one card (D3D12 `MakeResident`/`SetResidencyPriority`). **[UPDATED 2026-06-19: I-3 found residency priority CANNOT pin vs a co-tenant (intra-process hint only) — so the arena is SWAP-based, not pin-based. Concrete staged spec: [`block-kv-arena-design.md`](block-kv-arena-design.md).]**
 - **Test:** the H1 Prediction Card — run the adversarial desktop VRAM-hog against the *locked* arena; measure whether VidMm involuntarily evicts it; PresentMon for the frame-pacing half (on Vulkan, where PDH sees). **Gate:** does the lock hold / is the eviction premise real? (If not → demote co-management, per the pre-committed pivot.)
 - **Document:** the lock-respect / VidMm-co-residency result; workbook.
 - **Publishes to:** the VidMm co-management section of the full paper.
