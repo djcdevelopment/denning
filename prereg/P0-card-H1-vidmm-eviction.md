@@ -4,6 +4,7 @@
 
 - **Committed:** 2026-06-19  **Advisor-lens ack:** 2026-06-19 (maintainer-applied — the advisor is a viewpoint)
 - **Maps to:** H1 / wedge W1 / RQ1. One leg of the **P0 two-sided honesty test**.
+- **RESULT (pilot, post-tag):** ✅ **H1 SUPPORTED** — decode 0.52×, `non_local` 0→0.97 GB, reproducible ×2. See [`../results/H1-eviction-pilot-20260619.md`](../results/H1-eviction-pilot-20260619.md). *(Prediction below is unchanged — this line records the outcome.)*
 
 ## Hypothesis (falsifiable, one sentence)
 Under an adversarial desktop VRAM-hog that drives the DXGI budget below the resident KV demand of N concurrent agent sessions on one B70, VidMm involuntarily demotes ≥1 of the serving process's KV heaps, causing a measurable decode-stall.

@@ -1,0 +1,43 @@
+{
+  "ts": 1781915479,
+  "model": "Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf",
+  "armed": true,
+  "out_dir": "D:\\work\\denning\\results\\raw\\h1-1781915479",
+  "engine": "Vulkan(GGML_VK_VISIBLE_DEVICES=1)",
+  "baseline": {
+    "label": "baseline",
+    "tg_tps": 133.44,
+    "raw_tail": "| ------------------------------ | ---------: | ---------: | ---------- | --: | --------------: | -------------------: |\n| qwen3moe 30B.A3B Q4_K - Medium |  17.28 GiB |    30.53 B | Vulkan     |  99 |           tg128 |        133.44 \u00c2\u00b1 0.01 |\n\nbuild: 47c0eda9d (9279)"
+  },
+  "hog_trace": [
+    "[hog] target xpu:1 | cap 15.0 GB, step 1.0 GB | card free 31.23/31.23 GB before",
+    "[hog] +1.0 -> 1.0 GB resident | card free 30.61 GB",
+    "[hog] +1.0 -> 2.0 GB resident | card free 29.61 GB",
+    "[hog] +1.0 -> 3.0 GB resident | card free 28.61 GB",
+    "[hog] +1.0 -> 4.0 GB resident | card free 27.61 GB",
+    "[hog] +1.0 -> 5.0 GB resident | card free 26.61 GB",
+    "[hog] +1.0 -> 6.0 GB resident | card free 25.61 GB",
+    "[hog] +1.0 -> 7.0 GB resident | card free 24.61 GB",
+    "[hog] +1.0 -> 8.0 GB resident | card free 23.61 GB",
+    "[hog] +1.0 -> 9.0 GB resident | card free 22.61 GB",
+    "[hog] +1.0 -> 10.0 GB resident | card free 21.61 GB",
+    "[hog] +1.0 -> 11.0 GB resident | card free 20.61 GB",
+    "[hog] +1.0 -> 12.0 GB resident | card free 19.61 GB",
+    "[hog] +1.0 -> 13.0 GB resident | card free 18.61 GB",
+    "[hog] +1.0 -> 14.0 GB resident | card free 17.61 GB",
+    "[hog] +1.0 -> 15.0 GB resident | card free 16.61 GB",
+    "[hog] HOLDING 15.0 GB for 150.0s (watch the server's non_local / TBT now) ..."
+  ],
+  "hog_reached_hold": true,
+  "pressured": {
+    "label": "pressured",
+    "tg_tps": 69.55,
+    "raw_tail": "| ------------------------------ | ---------: | ---------: | ---------- | --: | --------------: | -------------------: |\n| qwen3moe 30B.A3B Q4_K - Medium |  17.28 GiB |    30.53 B | Vulkan     |  99 |           tg128 |         69.55 \u00c2\u00b1 0.00 |\n\nbuild: 47c0eda9d (9279)"
+  },
+  "analysis": {
+    "verdict_rc": 3,
+    "nonlocal_gb": null,
+    "raw": null
+  },
+  "tg_ratio_pressured_over_baseline": 0.521
+}

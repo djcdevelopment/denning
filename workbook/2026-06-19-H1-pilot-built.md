@@ -17,8 +17,8 @@
 ## Squeeze schedule (proposed, for the go)
 Qwen3-30B-A3B Q4 ≈ 17.3 GB resident on Card B (31.2 GB). To force demotion the hog must fill the card past the server's demand: ~14 GB fills it; >14 GB forces spill. Proposed first run: `--arm-pressure --hog-cap-gb 15` (just past fill), watchdog observer-only with the cascade ABORTs live (commit≥95%, phys≥29.5 GB, TDR). Bounded, one card, model fits → the watchdog catches a real cascade while a *signal-level* `non_local` rise is expected and logged.
 
-## STATUS — **PAUSED** for operator go
-The first `--arm-pressure` run is the first induced-pressure "flight" and the P0 honest-unveiling. Awaiting the go (and any change to the squeeze schedule / model).
+## STATUS — **RUN; H1 SUPPORTED** (operator gave the go; 2 reproducing runs)
+First induced-pressure flight executed (hog 15 GB, Vulkan, Card B). **Decode halved 133→70 t/s (ratio 0.52), reproducible across 2 runs; Shared GPU Memory rose 0→0.97 GB; dedicated saturated ~31 GB.** VidMm did **not** protect the foreground compute process → H1 supported; the pre-committed refute-pivot does not fire. Full predicted-vs-actual + caveats: [`../results/H1-eviction-pilot-20260619.md`](../results/H1-eviction-pilot-20260619.md). The safing watchdog rode along in observer mode with no ABORT — first real flight under the I-1 chaperone, clean.
 
 ## Manifest
 `experiments/vram_hog.py` · `experiments/h1_eviction_pilot.py`. Card B, Vulkan (`GGML_VK_VISIBLE_DEVICES=1`) + `xpu:1` hog. b70tools b9279 build, driver 32.0.101.8826.

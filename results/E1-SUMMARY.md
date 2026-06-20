@@ -43,7 +43,7 @@ At equal ~32B total / Q4 / single card: **MoE (3B active) decodes 5.7× faster t
 `-fa` (required for quantized KV) is **~4× slower than default attention at depth** (f16+FA ≈ q8+FA ≈ 10 t/s @32K vs f16-no-FA 38). So q8 KV is a *capacity-vs-speed trap* on this stack, and **kernel + engine is a first-class variable** (a corrected prediction → a real finding).
 
 ## Status vs roadmap
-**I-2 / E1 substantially DONE** (R1/R2/R3 + roofline + N-session measured on-rig). Remaining E1 refinements: q8-KV roofline (in flight), dequant-under-N-decode, copy-engine scheduling sweep, SYCL-vs-Vulkan cliff (needs ollama/ipex-llm harness), llama.cpp-matched dequant kernel. **Caveats:** dequant is a torch proxy; single-card; Vulkan. **Needs the operator:** G0 + tagging; H1 (watchdog first); the asymmetric two-card build.
+**I-2 / E1 substantially DONE** (R1/R2/R3 + roofline + N-session measured on-rig). Remaining E1 refinements: q8-KV roofline (in flight), dequant-under-N-decode, copy-engine scheduling sweep, SYCL-vs-Vulkan cliff (needs ollama/ipex-llm harness), llama.cpp-matched dequant kernel. **Caveats:** dequant is a torch proxy; single-card; Vulkan. **Done since:** G0 + tag (`prereg-launch-suppositions`); I-1 safing watchdog (rehearsed); **H1 pilot CONFIRMED** — VidMm degrades foreground compute under a co-tenant (decode **0.52×**, ~1 GB forced shared-memory spill, reproducible ×2; see `H1-eviction-pilot-20260619`). **Still needs the operator:** the asymmetric two-card build; H1 resident-server variant + hog sweep (I-3).
 
 ## Recordings (in `results/raw/`)
 idle-baseline events.jsonl · e1-microbench-cardA / cardB-contended / Bdq-real-decode JSON · (bench tables in the per-result docs + commit messages).

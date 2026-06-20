@@ -45,6 +45,7 @@ HOG = os.path.join(os.path.dirname(__file__), "vram_hog.py")
 WATCHDOG = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ops", "safing_watchdog.py")
 PREFLIGHT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ops", "preflight.py")
 DEFAULT_MODEL = r"D:\work\battlemage\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"
+GIB = 1024 ** 3
 
 CARD_B_VK = "1"   # GGML_VK_VISIBLE_DEVICES -> Card B
 CARD_B_XPU = "xpu:1"
@@ -96,26 +97,44 @@ def start_watchdog(log_path: str, b70_dir: str) -> subprocess.Popen:
 def start_hog(cap_gb: float, hold_s: float) -> subprocess.Popen:
     return subprocess.Popen(
         [PY, HOG, "--device", CARD_B_XPU, "--cap-gb", str(cap_gb),
-         "--step-gb", "2", "--hold-s", str(hold_s), "--step-pause-s", "0.5"],
+         "--step-gb", "1", "--hold-s", str(hold_s), "--step-pause-s", "0.4"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
 
 
 def analyze(out_dir: str) -> dict:
-    """Pull the worst non_local the recording saw, via b70tools verdict --json."""
-    out = {"verdict_rc": None, "nonlocal_gb": None, "raw": None}
+    """Peak dedicated + Shared-GPU-Memory (non_local) committed from the PDH
+    cross-process counters in the recording (verdict's window logic is too coarse
+    for short runs; read the event log directly)."""
+    out = {"local_peak_gb": None, "nonlocal_start_gb": None, "nonlocal_peak_gb": None,
+           "nonlocal_delta_gb": None, "pdh_samples": 0}
+    loc, nl = [], []
     try:
-        p = subprocess.run([B70, "verdict", "--json", out_dir, "--window-s", "0"],
-                           capture_output=True, text=True, timeout=30)
-        out["verdict_rc"] = p.returncode
-        txt = (p.stdout or "").strip()
-        if txt:
-            try:
-                out["raw"] = json.loads(txt.splitlines()[-1])
-            except (ValueError, IndexError):
-                out["raw"] = txt.splitlines()[-1] if txt.splitlines() else None
-    except (OSError, subprocess.TimeoutExpired) as e:
+        with open(os.path.join(out_dir, "events.jsonl"), encoding="utf-8") as f:
+            for line in f:
+                if "bytes_committed" not in line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except ValueError:
+                    continue
+                if o.get("k") != "ms":
+                    continue
+                if o.get("n") == "gpu.adapter.vram.local.bytes_committed":
+                    loc.append(o["v"])
+                elif o.get("n") == "gpu.adapter.vram.non_local.bytes_committed":
+                    nl.append(o["v"])
+    except OSError as e:
         out["error"] = str(e)
+        return out
+    g = lambda v: round(v / GIB, 3)
+    if loc:
+        out["local_peak_gb"] = g(max(loc))
+    if nl:
+        out["nonlocal_start_gb"] = g(nl[0])
+        out["nonlocal_peak_gb"] = g(max(nl))
+        out["nonlocal_delta_gb"] = g(max(nl) - min(nl))
+        out["pdh_samples"] = len(nl)
     return out
 
 
@@ -127,7 +146,7 @@ def main() -> int:
                     help="ENABLE the induced-pressure leg (default: baseline-only, safe)")
     ap.add_argument("--baseline-only", action="store_true", help="explicit baseline-only")
     ap.add_argument("--hog-cap-gb", type=float, default=15.0)
-    ap.add_argument("--hog-hold-s", type=float, default=60.0)
+    ap.add_argument("--hog-hold-s", type=float, default=150.0)
     ap.add_argument("--out", default=None, help="recording dir (default: D:\\work\\denning\\results\\raw\\h1-<ts>)")
     args = ap.parse_args()
 
@@ -162,8 +181,20 @@ def main() -> int:
         if armed:
             print(f"[h1] === ARMED: hog -> {args.hog_cap_gb} GB on Card B, then pressured bench ===")
             hog = start_hog(args.hog_cap_gb, args.hog_hold_s)
-            # let the hog walk up to cap before benching under pressure
-            time.sleep(min(args.hog_cap_gb / 2 * 0.5 + 4.0, 20.0))
+            # wait for the hog to reach cap (prints HOLDING) before benching under pressure
+            trace, held, t0 = [], False, time.time()
+            while time.time() - t0 < 45:
+                line = hog.stdout.readline()
+                if not line:
+                    if hog.poll() is not None:
+                        break
+                    continue
+                trace.append(line.rstrip())
+                print(f"   {line.rstrip()}")
+                if "HOLDING" in line:
+                    held = True
+                    break
+            result["hog_trace"], result["hog_reached_hold"] = trace, held
             result["pressured"] = bench_tg(args.model, args.n, "pressured")
             print(f"[h1] pressured tg = {result['pressured']['tg_tps']} t/s")
             try:
@@ -187,9 +218,19 @@ def main() -> int:
     # verdict
     if armed and result.get("baseline", {}).get("tg_tps") and result.get("pressured", {}).get("tg_tps"):
         b, p = result["baseline"]["tg_tps"], result["pressured"]["tg_tps"]
-        result["tg_ratio_pressured_over_baseline"] = round(p / b, 3)
-        print(f"[h1] tg ratio pressured/baseline = {result['tg_ratio_pressured_over_baseline']} "
-              f"(<<1 + non_local rise => H1 CONFIRMED; ~1 => VidMm protected foreground)")
+        ratio = round(p / b, 3)
+        result["tg_ratio_pressured_over_baseline"] = ratio
+        nlpk = result.get("analysis", {}).get("nonlocal_peak_gb")
+        spilled = nlpk is not None and nlpk >= 0.5
+        if ratio < 0.8 and spilled:
+            verdict = "H1-SUPPORTED (foreground compute NOT protected: decode penalty + shared-mem spill)"
+        elif ratio > 0.9 and not spilled:
+            verdict = "VidMm-PROTECTED-foreground (no penalty, no spill)"
+        else:
+            verdict = "AMBIGUOUS (escalate hog / use a resident-server variant)"
+        result["pilot_verdict"] = verdict
+        print(f"[h1] tg ratio={ratio} | non_local peak={nlpk} GB | dedicated peak="
+              f"{result.get('analysis',{}).get('local_peak_gb')} GB -> {verdict}")
 
     res_path = rf"D:\work\denning\results\raw\h1-{ts}.result.json"
     with open(res_path, "w", encoding="utf-8") as f:
