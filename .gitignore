@@ -17,6 +17,7 @@ results/raw/*.csv.gz
 
 # === H1 pilot run artifacts (recordings transient; commit the result *doc* deliberately) ===
 results/raw/h1*-*/
+results/raw/i4c-*/
 results/raw/*.watchdog.jsonl
 results/raw/probe-*.txt
 

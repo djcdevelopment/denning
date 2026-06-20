@@ -170,8 +170,42 @@ def moe_vs_dense():
     print("wrote", out)
 
 
+def i4c_memory_knee():
+    """The MEMORY-bound admission knee (results/I4c-memory-knee-20260619.md)."""
+    hog = [0, 10, 12, 14, 16]
+    goodput = [4, 4, 4, 0, 0]
+    spill = [0.2, 0.2, 0.2, 1.07, 2.92]
+    labels = [str(h) for h in hog]
+
+    fig, ax1 = plt.subplots(figsize=(7.6, 4.4), dpi=160)
+    fig.subplots_adjust(left=0.09, right=0.9, top=0.83, bottom=0.14)
+    ax1.axvspan(2.5, 4.5, color=CORAL, alpha=0.06)
+    bars = ax1.bar(labels, goodput, color=BLUE, width=0.55, zorder=2)
+    ax1.set_xlabel("co-tenant VRAM held (GB)", fontsize=10.5)
+    ax1.set_ylabel("goodput (sessions meeting SLO)", color=BLUE, fontsize=10.5)
+    ax1.tick_params(axis="y", labelcolor=BLUE)
+    ax1.set_ylim(0, 5)
+    for b, g in zip(bars, goodput):
+        ax1.annotate(str(g), (b.get_x() + b.get_width() / 2, g), textcoords="offset points",
+                     xytext=(0, 4), ha="center", fontsize=9, color=BLUE)
+    ax2 = ax1.twinx()
+    ax2.plot(labels, spill, "--D", color=CORAL, lw=2.2, ms=6)
+    ax2.set_ylabel("shared-memory spill (GB)", color=CORAL, fontsize=10.5)
+    ax2.tick_params(axis="y", labelcolor=CORAL)
+    ax2.set_ylim(0, 3.3)
+    ax1.text(2.45, 4.85, "budget crossover ≈ 13 GB", fontsize=8.8, color=CORAL, ha="center", va="top")
+    fig.suptitle("Memory-bound admission knee: a co-tenant forces the spill", fontsize=12, y=0.95)
+    ax1.set_title("N=4 sessions, short ctx · footprint 18.3 GB · one Arc Pro B70 (31 GB) · denning I-4c",
+                  fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "i4c-memory-knee.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
     decode_roofline()
     i4b_admission_knee()
     moe_vs_dense()
+    i4c_memory_knee()
