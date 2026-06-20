@@ -1,8 +1,8 @@
 # Prediction Card — P0 / H1: Does VidMm involuntarily evict a foreground serving process?
 
-`[prereg tag: prereg-P0 — NOT YET TAGGED; finalize numbers + advisor ack @ G0 first]`
+`[prereg tag: prereg-launch-suppositions — TAGGED & LOCKED 2026-06-19]`
 
-- **Committed:** `<YYYY-MM-DD on tag>`  **Advisor ack:** `<date | pending>`
+- **Committed:** 2026-06-19  **Advisor-lens ack:** 2026-06-19 (maintainer-applied — the advisor is a viewpoint)
 - **Maps to:** H1 / wedge W1 / RQ1. One leg of the **P0 two-sided honesty test**.
 
 ## Hypothesis (falsifiable, one sentence)
@@ -11,7 +11,7 @@ Under an adversarial desktop VRAM-hog that drives the DXGI budget below the resi
 ## Mechanism
 WDDM/VidMm virtualizes VRAM; `QueryVideoMemoryInfo` budget shrinks under contention; over-budget processes can be demoted to shared/system memory over PCIe (the bandwidth cliff). Open question: does it demote a *foreground compute* process, or protect it?
 
-## Quantitative prediction `[DRAFT — operator sets, advisor reviews]`
+## Quantitative prediction `[LOCKED @ G0 2026-06-19]`
 - Involuntary demotion of ≥1 KV heap within **~2 s** of budget < resident demand.
 - TBT on affected sessions spikes **≥2× baseline**; decode-stall **≥10%** of a 10 s window.
 - **Prior confidence: ~50%** (genuinely uncertain — Microsoft documents cooperative offer/reclaim).

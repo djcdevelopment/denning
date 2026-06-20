@@ -12,9 +12,9 @@ On a fabric-less, RAM-inverted, OS-arbitrated GPU box (Windows/VidMm, PCIe-only 
 
 **Goal: map the feasibility envelope (the bounds), with the simplest system that reveals it.** Compression depth and bit-checks are deferred levers — see `docs/cost-model.md` §7.
 
-## Status: **S0 — research setup** (pre-registration in progress; no results yet)
+## Status: **G0 cleared (2026-06-19)** — forward predictions tagged; building toward H1
 
-Next gate: **G0** — the advisor reviews methodology + pre-registration **before any GPU-hour is spent.**
+The cost-model core (R1–R3) and the admission roofline (H2′) are **already measured on-rig** ([`results/E1-SUMMARY.md`](results/E1-SUMMARY.md)) — run *ahead* of formal G0 but under the one rule: the predictions were git-committed (`1118d0c`) **before** the data (`2d19b09`+). G0 — the advisor-lens methodology pass, applied by the maintainer (the "advisor" is a viewpoint, not a third party) — is now cleared, and the still-**untested** forward predictions (**H1′, H4, H5′, H6**) are git-tagged **`prereg-launch-suppositions`** before their experiments run. Next: build the **I-1 VidMm-eviction watchdog**, then run **H1**.
 
 ## The one rule
 
@@ -38,4 +38,4 @@ Dual **Intel Arc Pro B70** (Battlemage, 32 GB each = 64 GB VRAM, ~608 GB/s, FLOP
 
 ## License
 
-TBD — decide at G0.
+**Apache-2.0** — see [`LICENSE`](LICENSE). Permissive, with an explicit patent grant (chosen at G0, 2026-06-19).
