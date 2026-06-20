@@ -386,6 +386,33 @@ def two_card_scaling():
     print("wrote", out)
 
 
+def two_card_goodput():
+    """N-session goodput, 1 vs 2 cards: the knee doubles (results/two-card-goodput-20260619.md)."""
+    n1, g1 = [8, 12, 16], [8, 0, 0]
+    n2, g2 = [8, 16, 20, 24], [8, 16, 0, 0]
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.5), dpi=160)
+    fig.subplots_adjust(left=0.1, right=0.96, top=0.83, bottom=0.14)
+    ax.plot(n1, g1, "--s", color="#9a9a93", lw=2.2, ms=7, label="1 card (Card B)")
+    ax.plot(n2, g2, "-o", color=BLUE, lw=2.4, ms=7, label="2 cards (replica each)")
+    ax.set_xlabel("concurrent agent sessions (N)", fontsize=10.5)
+    ax.set_ylabel("goodput (sessions meeting SLO)", fontsize=10.5)
+    ax.set_ylim(-1, 18.5)
+    ax.set_xlim(6.5, 25)
+    ax.grid(True, color="#dddddd", lw=0.6)
+    ax.set_axisbelow(True)
+    ax.annotate("N* = 8", (8, 8), textcoords="offset points", xytext=(-2, 8), fontsize=10, color="#6b6b66", ha="right")
+    ax.annotate("N* = 16  (2×)", (16, 16), textcoords="offset points", xytext=(6, 6), fontsize=10.5, color=BLUE)
+    ax.legend(fontsize=9, frameon=False, loc="center right")
+    fig.suptitle("Two cards double the agent-session capacity at SLO  (N*: 8 → 16)", fontsize=11.5, y=0.95)
+    ax.set_title("N streaming sessions, goodput @ TBT ≤ 50 ms · replica per card · denning",
+                 fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "two-card-goodput.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
     decode_roofline()
@@ -398,3 +425,4 @@ if __name__ == "__main__":
     s1_swap()
     swap_cost_curve()
     two_card_scaling()
+    two_card_goodput()
