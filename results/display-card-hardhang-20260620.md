@@ -3,8 +3,20 @@
 *Escalation of [`two-card-TDR-contamination-20260620`](two-card-TDR-contamination-20260620.md).
 A device-0 (display card) concurrency sweep did not produce a recoverable TDR — it
 **locked the entire system** (UI + mouse frozen), the display driver never recovered,
-and the operator had to **hard power-cycle** after ~15 minutes. This supersedes the
-"asymmetric cap" plan: on this rig the display card cannot serve inference at all.*
+and the operator had to **hard power-cycle** after ~15 minutes.*
+
+> 🔎 **REASSESSED 2026-06-20 (operator challenge — "is there really NO safe number?").**
+> "Safe cap = 0" is **over-stated** as a finding; it stands only as the conservative
+> *default*. Counter-evidence from our own runs: device 0 served **8 sessions with
+> recovery** in `--serve --cards 2`, and ran `llama-bench` clean. The hard-hang sweep was
+> **confounded** — it ran ~30 min after device 0 had TDR'd twice (no reboot between), so
+> the driver was likely already degraded; `cap=1` producing *zero tokens* is the tell that
+> it was broken *before* load mattered. Most likely mechanism: a **cascade** (load → TDR →
+> degraded driver → next load → hard hang), not an intrinsic 1-session limit. **The clean
+> zero-TDR headroom is UNMEASURED.** It should be found by watching the *approach* (desktop
+> present-latency / frame-time, which degrades before a TDR) on a **fresh driver**, stopping
+> at the first recoverable TDR — not by crashing up into the ceiling (the method that hung
+> the box). Default stays 0; the true safe number is an open question, probably > 0.
 
 ## What was run
 `python -m denning.denningd --sweep --sweep-cards 1 --max-cap 8` — ramp the display
