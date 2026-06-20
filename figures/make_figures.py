@@ -203,9 +203,43 @@ def i4c_memory_knee():
     print("wrote", out)
 
 
+def h4_lifetime_classes():
+    """H4 simulation: lifetime classes vs LRU (results/H4-lifetime-sim-20260619.md)."""
+    cap = [36, 40, 48, 56, 64, 72, 80, 96]
+    on = [19.5, 75.3, 100, 100, 100, 100, 100, 100]
+    lru = [0.0, 0.0, 0.0, 0.0, 2.4, 23.7, 67.3, 99.8]
+
+    fig, ax = plt.subplots(figsize=(7.8, 4.5), dpi=160)
+    fig.subplots_adjust(left=0.1, right=0.96, top=0.83, bottom=0.14)
+    ax.axvspan(34, 92, color=CORAL, alpha=0.05)
+    ax.fill_between(cap, lru, on, color=BLUE, alpha=0.08, zorder=1)
+    ax.plot(cap, on, "-o", color=BLUE, lw=2.4, ms=6, label="classes-ON (lifetime-class)", zorder=3)
+    ax.plot(cap, lru, "--s", color=CORAL, lw=2.2, ms=6, label="LRU / TTL (recency)", zorder=3)
+    ax.set_xlabel("arena capacity (KV units)  —  smaller = more overload", fontsize=10.5)
+    ax.set_ylabel("high-reuse block hit rate (%)", fontsize=10.5)
+    ax.set_ylim(-3, 108)
+    ax.set_xlim(34, 97)
+    ax.grid(True, color="#dddddd", lw=0.6)
+    ax.set_axisbelow(True)
+    ax.text(54, 52, "H4 advantage\n(overload + reuse)", fontsize=9.5, color=BLUE, ha="center")
+    ax.annotate("working set fits\n(policy irrelevant)", xy=(96, 100), xytext=(86, 36),
+                fontsize=8.3, color=GREY, ha="center",
+                arrowprops=dict(arrowstyle="->", color=GREY, lw=1))
+    ax.legend(fontsize=9, frameon=False, loc="center right")
+    fig.suptitle("H4 (simulation): lifetime classes protect reuse; LRU thrashes it",
+                 fontsize=11.5, y=0.95)
+    ax.set_title("8 agent sessions w/ shared prefixes · 60 reps · denning H4 SIM (not on-rig)",
+                 fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "h4-lifetime-classes.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
     decode_roofline()
     i4b_admission_knee()
     moe_vs_dense()
     i4c_memory_knee()
+    h4_lifetime_classes()
