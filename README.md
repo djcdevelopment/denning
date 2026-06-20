@@ -27,8 +27,12 @@ The cost-model core (R1–R3) and the admission roofline (H2′) are **already m
   <img src="figures/i4b-admission-knee.png" width="32%" alt="Admission knee — goodput collapses past N*=8" />
   <img src="figures/moe-vs-dense.png" width="32%" alt="MoE vs dense — 5.7x faster decode" />
 </p>
+<p align="center">
+  <img src="figures/i4c-memory-knee.png" width="40%" alt="Memory-bound admission knee — a co-tenant forces the spill" />
+  <img src="figures/h4-lifetime-classes.png" width="40%" alt="H4 simulation — lifetime classes vs LRU eviction" />
+</p>
 
-*Left: decode falls 11.5× by 64K context (the Vulkan attention cliff). Middle: goodput peaks at N\*=8 concurrent sessions — over-admission collapses both goodput and throughput. Right: the MoE streams ~3B active params and decodes 5.7× faster than a dense 32B. All regenerate from measured constants via [`figures/make_figures.py`](figures/make_figures.py).*
+*Top row — decode falls 11.5× by 64K context (the Vulkan attention cliff); goodput peaks at N\*=8 concurrent sessions (over-admission collapses goodput and throughput); the MoE decodes 5.7× faster than a dense 32B. Bottom row — the memory-bound admission knee (a co-tenant forces the spill → goodput collapses 4→0) and the H4 eviction-policy **simulation** (lifetime classes keep the reused block resident; LRU thrashes it). All regenerate from measured constants via [`figures/make_figures.py`](figures/make_figures.py).*
 
 ## The one rule
 
