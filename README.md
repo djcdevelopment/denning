@@ -2,6 +2,10 @@
 
 *Treating an LLM's context (KV-cache) and MoE experts as an OS-managed resource on fabric-less, OS-arbitrated GPUs.*
 
+![The demotion cliff — a fitting model's decode collapses 5x as a co-tenant oversubscribes the card](figures/h1-demotion-cliff.png)
+
+> **The headline result (H1, reproduced ×2).** On Windows + Intel Arc, once a co-tenant app pushes the GPU past its VRAM budget (~13 GB here), VidMm involuntarily evicts a model that *fits* — decode collapses **5×** while ~5 GB of it spills to PCIe-bounced shared memory. You can't pin against it ([here's why](results/defense-feasibility-d3d12-priority-20260619.md)); the fix is admission control on the live budget. The full, pre-registered story: [`results/E1-SUMMARY.md`](results/E1-SUMMARY.md).
+
 **Named for Peter J. Denning** — the working-set model (CACM 1968) and the page-fault-frequency load-control tradition that followed (1970s). This project reincarnates that idea for KV/expert residency on a GPU: admit work to the resident set only while it fits the bandwidth roofline; suspend before you thrash.
 
 ## Thesis (one sentence)
