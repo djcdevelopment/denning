@@ -297,6 +297,39 @@ def h4_blockgrained():
     print("wrote", out)
 
 
+def s1_swap():
+    """S1: swap (refetch) vs re-prefill (recompute) goodput (results/S1-swap-arena-20260619.md)."""
+    import numpy as np
+    off = [18, 18, 16]
+    on = [23, 24, 22]
+    x = np.arange(3)
+    w = 0.38
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.4), dpi=160)
+    fig.subplots_adjust(left=0.1, right=0.96, top=0.82, bottom=0.12)
+    b1 = ax.bar(x - w / 2, off, w, color=CORAL, label="re-prefill on miss (recompute, ~2.4 s)")
+    b2 = ax.bar(x + w / 2, on, w, color=BLUE, label="swap/restore on miss (refetch, ~84 ms)")
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"seed {s}" for s in range(3)])
+    ax.set_ylabel("goodput (turns meeting TTFT SLO, /40)", fontsize=10.5)
+    ax.set_ylim(0, 31)
+    for bars in (b1, b2):
+        for b in bars:
+            ax.annotate(str(int(b.get_height())), (b.get_x() + b.get_width() / 2, b.get_height()),
+                        textcoords="offset points", xytext=(0, 3), ha="center", fontsize=9)
+    ax.legend(fontsize=9, frameon=False, loc="upper center")
+    ax.grid(True, axis="y", color="#dddddd", lw=0.6)
+    ax.set_axisbelow(True)
+    fig.suptitle("S1 swap: refetch-on-miss (84 ms) beats re-prefill (2.4 s) — +33% goodput",
+                 fontsize=11, y=0.95)
+    ax.set_title("a cache miss restored from disk vs recomputed · R1 on real KV ≈ 29× · denning S1",
+                 fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "h4-swap.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
     decode_roofline()
@@ -306,3 +339,4 @@ if __name__ == "__main__":
     h4_lifetime_classes()
     h4_onrig()
     h4_blockgrained()
+    s1_swap()
