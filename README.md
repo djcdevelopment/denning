@@ -29,6 +29,7 @@ The cost-model core (R1–R3) and the admission roofline (H2′) are **already m
 | [`results/`](results/) | results, committed only *after* the matching prereg is tagged |
 | [`workbook/`](workbook/) | dated public lab notebook |
 | [`experiments/`](experiments/) | measurement harnesses (P0 first) |
+| [`ops/`](ops/) | **operational foundation** — pre-flight checklist + pure-observer safing watchdog (I-1) |
 | [`related-work/`](related-work/) | citation tracker with verification status |
 | [`REPRODUCE.md`](REPRODUCE.md) | the per-result reproducibility standard |
 

@@ -4,10 +4,12 @@
 
 ## Prime directives
 1. **You can't fix what you can't see.** No run yields a citable result unless its recording contains the signal the prediction is scored on (see blind-spot table §4).
-2. **Install the abort before you test the thruster.** The pure-observer safing watchdog (see USER-DECIDES) must exist before the adversarial-VRAM-hog (H1) run.
+2. **Install the abort before you test the thruster.** The pure-observer safing watchdog **exists and is rehearsed** ([`../ops/safing_watchdog.py`](../ops/safing_watchdog.py) — built + all-six-modes tested 2026-06-19) and must be **armed** before the adversarial-VRAM-hog (H1) run. Pre-flight via [`../ops/preflight.py`](../ops/preflight.py). See [`../ops/README.md`](../ops/README.md).
 3. **Abort ≠ refutation.** An aborted/failed run is marked **VOID** and re-run after safing — it is an operational event, not a scientific result. A *refuted prediction* is a scientific success (different thing).
 
 ## 1. Pre-flight checklist & GO/NO-GO (complete + log to the workbook before EVERY run)
+
+> Automated by [`../ops/preflight.py`](../ops/preflight.py) (C: > 100 GB, commit/RAM headroom, D: room, b70tools present + enumerates, `--model` exists → GO / NO-GO). Run it first; the manual items below (driver/build/sha pins, display routing) still need an operator eye.
 
 - [ ] Intel Arc driver == pinned frozen value (e.g. `32.0.101.8826` — confirm against the campaign manifest)
 - [ ] SYCL/Vulkan backend build hash == frozen; llama.cpp commit == frozen
@@ -35,7 +37,7 @@
 Any unattended run MUST:
 - (a) have b70tools recording to **D:** with the 30 s heartbeat **confirmed before walk-away**;
 - (b) emit a **separate watchdog log** timestamping the last-progress signal (tokens decoded or telemetry heartbeat) so a hang is distinguishable from a slow run and **time-of-death is known**;
-- (c) have an **external watchdog action** (scheduled task: detect no-heartbeat-for-N-min → force-stop workload → capture final snapshot) so a hung box does not sit at the non-POST edge until morning — *(the watchdog itself must be exercised in failure-mode rehearsal before it guards a real run)*;
+- (c) have an **external watchdog action** — [`../ops/safing_watchdog.py`](../ops/safing_watchdog.py) `--enforce --child-pid <PID>` (commit / RAM / `non_local` / TDR / telemetry-staleness → SAFE/ABORT → `taskkill`), so a hung box does not sit at the non-POST edge until morning. *(Rehearsed 2026-06-19: all six failure modes caught via `--simulate`; telemetry-staleness → ABORT satisfies "time-of-death is known".)*;
 - (d) define success/failure so the operator can decide **VALID / VOID / RE-RUN from the recording alone.**
 
 *Cautionary tale: prior overnight `c65536`/`c131072` runs produced empty result files — unattended runs already fail silently and leave nothing diagnosable. This standard exists to fix exactly that.*
