@@ -108,6 +108,8 @@ denning's design follows from four measured results: **R1**, refetch ≫ recompu
 
 **Generality.** We measured Intel Arc under Windows/VidMm, but the inversion — RAM<VRAM, OS-arbitrated, fabric-less — characterizes *any* consumer GPU under a desktop OS (NVIDIA/AMD under WDDM included). The MoE architecture is a complementary lever on this substrate: a 3B-active MoE decodes 5.7× faster than a dense 32B of equal size, because decode streams active params and bandwidth is the bottleneck.
 
+**Forward path.** The engine layer — quantized KV, consumer multi-GPU, continuous batching — is by now commodity (§8); denning rents it and builds the *control plane*. Its pieces — the live-budget reader, the closed-form admission controller, a replica-router, and the lifetime-class KV arena with cheap swap — sit behind a thin per-engine adapter whose entire surface is *spawn-replica, save/restore-KV, stream*. llama.cpp ships today; vLLM-XPU (Linux) and ExLlamaV3 (NVIDIA/Windows) are the next two adapters — the latter promoting §3's eviction threat from an Arc curiosity to a cross-vendor, native-Windows claim. We deliberately build no new engine.
+
 ---
 
 ## 6. The OS as Partner
@@ -131,6 +133,8 @@ Systems papers rarely pre-register, but the discipline buys credibility cheaply.
 **Compression and MoE.** CacheGen [CacheGen, SIGCOMM'24] compresses KV into bitstreams for fast transfer — the direct prior art for our R2 arm. KTransformers [SOSP'25] and FluxMoE run frontier MoE on one consumer GPU via expert offload; FluxMoE *decouples* expert residency, the clean counter-position to our *unify*.
 
 **Foundations.** Denning's working-set model [Denning68] and the page-fault-frequency load-control tradition that followed [Denning80] are the intellectual lineage; Bélády's MIN is the optimal-eviction reference; regions and generational GC are prior art for lifetime classes.
+
+**The engines themselves.** We also surveyed the engines that actually run on this substrate, not only the research systems above: llama.cpp (our harness, Arc/Vulkan), Intel **llm-scaler / vLLM-XPU** (official Arc Pro B70 support in 2026 — Linux/Docker, multi-GPU with peer-to-peer *disabled* and collectives host-routed to avoid bus faults, independently confirming our R3), and **ExLlamaV3** + TabbyAPI (EXL3 2–8-bit KV cache, tensor-parallel, continuous batching — fast and native on Windows, but CUDA-only). Quantized KV, consumer multi-GPU, and dynamic batching are by now *commodity* across them; none, however, admits on the live OS budget, orders eviction by lifetime class, or survives an involuntary co-tenant clawback — each assumes it *owns* the device (TabbyAPI bills itself a hobby server "not meant for production"). denning is therefore a co-residency control plane *over* an unmodified engine, not a fourth engine — and because ExLlamaV3 meets the same WDDM/VidMm on native Windows, the §3 threat is cross-vendor, not Arc-specific.
 
 **One-line delta.** Prior KV-management work assumes the engine owns the GPU on CUDA/Linux with a fabric. denning is the first to treat residency as *co-managed with an adversarial desktop OS memory manager*, on a memory-inverted, fabric-less consumer GPU, governed by a closed-form admission controller on the live OS budget signal.
 
@@ -156,6 +160,7 @@ The datacenter answer to LLM-state management inverts on the hardware most local
 - **[FluxMoE]** PagedTensor expert-residency decoupling, 2026.
 - **[PTask]** Rossbach et al. PTask: Operating System Abstractions to Manage GPUs as Compute Devices. *SOSP* 2011.
 - LMCache; SGLang HiCache; kvcached; Bélády MIN; AdaptSize (*NSDI* 2017); Segcache (*NSDI* 2021).
+- **[Engines surveyed]** llama.cpp (Vulkan); Intel **llm-scaler / vLLM-XPU** — official Arc Pro B70 support, 2026 (github.com/intel/llm-scaler); **ExLlamaV3** + TabbyAPI — EXL3 quantized KV, CUDA/Windows (github.com/turboderp-org/exllamav3).
 - WDDM/VidMm, `IDXGIAdapter3::QueryVideoMemoryInfo`, D3D12 `SetResidencyPriority`/`MakeResident` — Microsoft documentation.
 
 ---
