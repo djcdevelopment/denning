@@ -236,6 +236,36 @@ def h4_lifetime_classes():
     print("wrote", out)
 
 
+def h4_onrig():
+    """H4 on-rig: lifetime-class vs LRU per-seed goodput (results/H4-arena-onrig-20260619.md)."""
+    import numpy as np
+    classes = [18, 18, 16, 19, 17, 18, 12, 6, 12, 14]
+    lru = [12, 14, 12, 14, 10, 16, 9, 6, 10, 10]
+    x = np.arange(10)
+    w = 0.4
+
+    fig, ax = plt.subplots(figsize=(8.0, 4.4), dpi=160)
+    fig.subplots_adjust(left=0.09, right=0.96, top=0.82, bottom=0.13)
+    ax.bar(x - w / 2, classes, w, color=BLUE, label="classes-ON (lifetime-class)")
+    ax.bar(x + w / 2, lru, w, color=CORAL, label="LRU (recency)")
+    ax.set_xticks(x)
+    ax.set_xticklabels([str(s) for s in range(10)])
+    ax.set_xlabel("workload seed", fontsize=10.5)
+    ax.set_ylabel("goodput (turns meeting TTFT SLO, /40)", fontsize=10.5)
+    ax.set_ylim(0, 22)
+    ax.legend(fontsize=9, frameon=False, loc="upper right")
+    ax.grid(True, axis="y", color="#dddddd", lw=0.6)
+    ax.set_axisbelow(True)
+    fig.suptitle("H4 on-rig: lifetime-class eviction beats LRU on real inference (10/10 seeds, +32%)",
+                 fontsize=11, y=0.95)
+    ax.set_title("6 hot sessions + cold scan, 4 KV slots · cache miss = ~2.8 s real re-prefill · denning H4",
+                 fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "h4-onrig.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
     decode_roofline()
@@ -243,3 +273,4 @@ if __name__ == "__main__":
     moe_vs_dense()
     i4c_memory_knee()
     h4_lifetime_classes()
+    h4_onrig()
