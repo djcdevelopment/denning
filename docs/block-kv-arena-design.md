@@ -134,4 +134,24 @@ The headline implication: **switching the miss path from re-prefill (recompute) 
 
 ---
 
+## 8. S2 grounding — the llama.cpp code map (2026-06-19 recon)
+
+Cloned `ggml-org/llama.cpp` (`D:\work\llama.cpp-src`) and read the KV internals to ground S2 against real code.
+
+**Dev loop (no Vulkan SDK needed for the prototype) — PROVEN.** CPU-only build configures clean with the VS-bundled cmake + MSVC (`-DGGML_VULKAN=OFF`), and the core `llama` lib **compiles clean** (`llama.dll`) — no Vulkan SDK, C: untouched. So we can iterate on ggml+llama on this box *without* installing the Vulkan SDK; only S3 (the Vulkan kernel) needs it. (`--target llama-cli` failed: the CLI moved to `tools/` in recent llama.cpp — use the right target.) Source at `D:\work\llama.cpp-src`.
+
+**Key find — the KV is ALREADY cell-based (a half-built paging substrate).** `llama_kv_cells` (`src/llama-kv-cells.h`): each physical cell holds `pos[i]` (logical position) and `seq[i]` (a sequence bitset — multi-seq prefix sharing), with a `used` set and per-cell `shift`/`ext`. That's a physical↔logical indirection already — exactly the indirection paging needs.
+
+**The seams (`src/llama-kv-cache.h`):**
+- **WRITE — already index-based.** `cpy_k/cpy_v(ctx, k_cur, k_idxs, il, sinfo)` + `set_input_k_idxs` write new KV into cells at an **index tensor** (`k_idxs`). Non-contiguous writes are *already* supported — cells are addressable.
+- **READ / GATHER.** `get_k/get_v(ctx, il, n_kv, sinfo)` builds the K/V attention tensor from the cells. **This is the gather seam** — block-grained read would assemble an arbitrary block set here (route-b gather-then-attend lives right here).
+- **MASK.** `set_input_kq_mask` gates which cells a query attends to (causal + seq membership) — already handles "skip non-member cells."
+- **SWAP primitives.** `seq_rm/seq_cp/seq_add` (range KV ops, with `seq_add` re-applying the RoPE Δ), `llama_kv_cells::cp(i,n)` (save/restore cell state), and `llama_state_seq_save/load` (whole-sequence, the S1 path).
+
+**Revised S2 shape (smaller than feared):** the indirection + indexed writes + mask already exist. What's missing is (1) a **host-backed tier** for cell KV + swap-out/in **by block**, (2) a **block table** mapping evicted blocks → host, and (3) restore-before-attention on a miss. `get_k/get_v` + the mask pick up restored cells naturally, so route-b (gather-then-attend) may not even need a new kernel — it may be expressible as a cell-allocation + host-tier change. Correctness bits to nail: RoPE/position consistency on restore (positions live in `pos[]`), and the synchronous stall when a needed block is out.
+
+**Priority note (post-S1):** [S1](../results/S1-swap-arena-20260619.md) showed the *swap* (refetch) lever dominates the eviction-*granularity* (policy) lever. So S2's marginal value is "completeness + the block-grained ceiling," not the headline win. Sequence-grained swap (S1) already captures most of the R1 benefit. Build S2 for the block-grained story, not because the goodput demands it.
+
+---
+
 *Feeds: `cost-model.md` (the constants), `build-roadmap.md` (I-3 arena, now concrete), the H4/I-4 results (the validated policies this would execute).*
