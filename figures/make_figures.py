@@ -358,6 +358,34 @@ def swap_cost_curve():
     print("wrote", out)
 
 
+def two_card_scaling():
+    """Replica-per-card scaling: ~2x by replication (results/two-card-scaling-20260619.md)."""
+    fig, ax = plt.subplots(figsize=(6.6, 4.6), dpi=160)
+    fig.subplots_adjust(left=0.13, right=0.95, top=0.85, bottom=0.10)
+    ax.bar([0], [132.6], width=0.55, color="#9a9a93")
+    ax.bar([1], [129.1], width=0.55, color=BLUE, label="Card A (display)")
+    ax.bar([1], [131.0], width=0.55, bottom=[129.1], color=CORAL, label="Card B (compute)")
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(["1 card", "2 cards (replica each)"])
+    ax.set_ylabel("aggregate decode throughput (t/s)", fontsize=10.5)
+    ax.set_ylim(0, 292)
+    ax.set_xlim(-0.6, 1.6)
+    ax.annotate("132.6", (0, 132.6), textcoords="offset points", xytext=(0, 4), ha="center", fontsize=10)
+    ax.annotate("260.1", (1, 260.1), textcoords="offset points", xytext=(0, 4), ha="center",
+                fontsize=10, color=CORAL)
+    ax.annotate("1.96× — linear, no contention", (1, 195), fontsize=10, color=BLUE, ha="center")
+    ax.legend(fontsize=9, frameon=False, loc="upper left")
+    ax.grid(True, axis="y", color="#dddddd", lw=0.6)
+    ax.set_axisbelow(True)
+    fig.suptitle("Fabric-less dual-B70 scales agent serving ~2× by replication", fontsize=11.5, y=0.96)
+    ax.set_title("Qwen3-30B-A3B decode, both cards concurrent · no GPU fabric · denning",
+                 fontsize=8.6, color=GREY, pad=8)
+    out = os.path.join(HERE, "two-card-scaling.png")
+    fig.savefig(out, dpi=160, facecolor="white")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     h1_demotion_cliff()
     decode_roofline()
@@ -369,3 +397,4 @@ if __name__ == "__main__":
     h4_blockgrained()
     s1_swap()
     swap_cost_curve()
+    two_card_scaling()
