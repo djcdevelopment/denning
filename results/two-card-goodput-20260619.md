@@ -6,6 +6,9 @@
 > resets and must **not** be reported as a clean result. The symmetric two-card load
 > reproducibly trips a TDR; see [`two-card-TDR-contamination-20260620.md`](two-card-TDR-contamination-20260620.md).
 > A clean number requires an **asymmetric** re-run under the safing watchdog.
+> **→ RESOLVED 2026-06-21:** replaced by a clean, reproducible baseline — via the
+> **headless fix** (RTX 2070 as display, both B70s headless), *not* asymmetric caps:
+> 16/16 at SLO across 2 runs, zero TDRs. See [`two-card-clean-baseline-20260621.md`](two-card-clean-baseline-20260621.md).
 
 *The thesis metric — many concurrent agent **sessions meeting an SLO**, across 1 vs 2 cards (replica per card). N streaming sessions round-robined across the cards; goodput = sessions with TBT_median ≤ 50 ms AND TTFT ≤ 2 s. Harness: [`../experiments/h4_twocard.py`](../experiments/h4_twocard.py).*
 
