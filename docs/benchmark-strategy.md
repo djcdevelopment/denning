@@ -55,6 +55,39 @@ Arc driver; Windows build; flash-attn on/off; **the live VidMm budget at run tim
 and "**Arc B70s headless; display on a separate RTX 2070 Super**" (measurement hygiene
 = a credibility asset, state it up front).
 
+### §1.5 — Industry-standard baselines (added 2026-06-21, operator directive)
+A homegrown harness — even one implementing the right methodology, even one that just
+caught a real bug — is dismissed as "rolled your own." Credible baselines need **both**:
+
+**(a) The standard load generator, not ours.** Publish numbers produced by **`vllm bench
+serve`** (the de-facto standard), which hits any OpenAI-compatible `/v1` endpoint. Two
+consequences for the A/B:
+- **The baseline arm already speaks `/v1`** — `llama-server` exposes an OpenAI-compatible
+  endpoint, so a standard client measures the stock engine *directly*, no changes.
+- **The denning arm needs an OpenAI `/v1` front** — `denningd` is a programmatic API today.
+  **Next build:** a thin streaming `/v1` front that does admission+routing+arena, then
+  proxies the engine's SSE. Then *the same* `vllm bench serve` invocation measures both
+  arms identically — that is the apples-to-apples A/B.
+- **vLLM won't install native on Windows/Arc, but `vllm bench serve` is only a client** —
+  run it from **WSL2** (Linux, where vLLM installs cleanly), pointed at the Windows
+  `llama-server` / `denningd` `/v1` over localhost. The client needs no GPU.
+- **Our `bench.py` stays as the dev/debug + cross-validation tool.** If `vllm bench serve`
+  and our harness agree on the stock-`llama-server` baseline, that mutual agreement is
+  strong validation of both (and our harness already earned trust by catching the
+  budget-probe stampede the median-TBT summary hid).
+
+**(b) Standard reference anchors, so the absolute numbers mean something.** Every result
+states where it sits against published yardsticks: **MLPerf Llama-2-70B Server SLO**
+(TTFT ≤ 2 s, TPOT ≤ 80 ms; Interactive 15 ms) — our 50 ms TPOT SLO is *stricter than
+Server*; and same-hardware **community references** in the native formats (`llama-bench`
+markdown tables; the battlemage pilots' 14b ≈ 45 t/s / 70b ≈ 11.7 t/s decode). Never a
+bare number — always "X, vs MLPerf's Y bound / vs the published Z on this silicon."
+
+**Order of operations:** (1) the internal A/B matrix [in flight] gives the control group
+via our harness; (2) build the `denningd /v1` front; (3) install `vllm bench serve` in
+WSL2; (4) re-run the A/B with the standard client against both `/v1` endpoints; (5) report
+both arms anchored to the MLPerf + community references.
+
 ---
 
 ## §2 — Highest-value benchmark directions (ranked to survive the red team)
