@@ -1,5 +1,15 @@
 # Result — Decode roofline vs context, to 64K (2026-06-19)
 
+> ℹ️ **Status (red-team review, 2026-06-21): real data, but reframe + re-measure.** A
+> benchmark-strategy red team mistook this for the *broken battlemage 70B `-c` files* and
+> called it "retracted-grade" — that was **wrong**: this is a genuine `-d`-depth `llama-bench`
+> run on the 30B model (see Manifest). BUT two real caveats: (1) it is only **`-r 2`** —
+> thin; re-measure at **r≥5**, add a **q8-KV arm**, persist raw UTF-8 JSONL. (2) The cliff is
+> **MOTIVATION (the admission floor), not a denning contribution** — a control plane cannot
+> make a decode step faster than the Vulkan kernel allows, so never headline "denning fixes
+> the decode cliff." The real long-context wins are capacity (KV vs the OS budget) + prefill/
+> TTFT. See [`../docs/benchmark-strategy.md`](../docs/benchmark-strategy.md) §2.3.
+
 *`llama-bench` (Vulkan b9279), Card B, Qwen3-30B-A3B-Q4_K_M, single GPU, tg64 @ depth (two runs combined). The bandwidth-bound decode roofline **and the long-context cliff** — the H2′ admission floor, and the operator's "small snappy, huge slow," quantified.*
 
 ## Measured (tg64 @ depth)

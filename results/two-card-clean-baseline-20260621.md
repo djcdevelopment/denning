@@ -23,6 +23,15 @@ fabric-less consumer box") delivered clean — and it directly **supersedes the 
 goodput result**, which got 14/16 across two TDRs (the 2 misses there were TDR shrapnel,
 not capacity — they're gone here).
 
+> ⚠️ **ARTIFACT STATUS (red-team finding, 2026-06-21): reproducible, but NOT yet
+> publication-grade.** `denningd._serve` persists only this *summary* — there is **no
+> per-request raw record** committed, so the number can't be independently verified from
+> disk. It is also median-TBT (not p99 TPOT), closed-loop fixed-concurrency (not open-loop
+> Poisson — risks coordinated omission), and uses non-standard "TBT" vocabulary. To
+> publish: persist per-request raw data + re-run with the standard metric block
+> (TTFT/TPOT/ITL, p50/p90/p99) under open-loop Poisson via `vllm bench serve`. See
+> [`../docs/benchmark-strategy.md`](../docs/benchmark-strategy.md) §0 + §5.
+
 ## Throughput — reported, NOT yet a scaling claim (honesty hold)
 Aggregate decode (sum of per-session decode-tps) was **1828.5 / 1833.0 t/s** across the
 two runs — reproducible. **But it does not cleanly reconcile with the single-card headless
