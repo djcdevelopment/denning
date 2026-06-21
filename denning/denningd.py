@@ -205,7 +205,7 @@ def _watchdog_path() -> str:
 
 
 def _serve(cards: int, n: int, display_cap: int = 0, guard_on: bool = True,
-           watchdog_on: bool = True) -> int:
+           watchdog_on: bool = True, devices_override=None) -> int:
     from collections import Counter
 
     from denning.control.tdr_guard import TdrGuard
@@ -213,7 +213,7 @@ def _serve(cards: int, n: int, display_cap: int = 0, guard_on: bool = True,
     # Topology after adding the RTX 2070 SUPER as the display card (2026-06-20):
     #   Vulkan0 = 2070 SUPER (DISPLAY, 8 GB) -- never serve here; Vulkan1/2 = the two
     #   headless B70s (32 GB each). So the serving cards are [1] and [1, 2], NOT [0, 1].
-    devices = [1] if cards == 1 else [1, 2]
+    devices = devices_override if devices_override else ([1] if cards == 1 else [1, 2])
     prompt = ("Explain virtual memory, demand paging, the TLB, and page replacement "
               "in a few precise paragraphs.")
 
@@ -379,6 +379,9 @@ def main() -> int:
                          "serves nothing (it hard-hangs this rig). >0 is unsafe here.")
     ap.add_argument("--no-guard", action="store_true", help="skip the TDR pre/post integrity check")
     ap.add_argument("--no-watchdog", action="store_true", help="do not launch the I-1 safing watchdog")
+    ap.add_argument("--devices", type=str, default=None,
+                    help="explicit Vulkan device indices to serve on, comma-separated (e.g. '1', '2', '1,2'). "
+                         "Overrides --cards. Device 0 = the 2070 display card and is REFUSED.")
     ap.add_argument("--sweep", action="store_true",
                     help="ramp display-card concurrency under the guard until a TDR; find the safe cap")
     ap.add_argument("--max-cap", type=int, default=8, help="top of the display-cap sweep")
@@ -391,8 +394,16 @@ def main() -> int:
         return _sweep(args.max_cap, args.sweep_cards, dry=args.dry_run,
                       force=args.force_display_unsafe)
     if args.serve:
+        dev_override = None
+        if args.devices:
+            dev_override = [int(x) for x in args.devices.split(",") if x.strip() != ""]
+            if 0 in dev_override:
+                print(json.dumps({"refused": "device 0 is the RTX 2070 display card -- never serve on it "
+                                  "(8 GB, drives the monitor). Use Vulkan 1 and/or 2 (the B70s)."}))
+                return 2
         return _serve(args.cards, args.n, args.display_cap,
-                      guard_on=not args.no_guard, watchdog_on=not args.no_watchdog)
+                      guard_on=not args.no_guard, watchdog_on=not args.no_watchdog,
+                      devices_override=dev_override)
     return _dry_run()
 
 
