@@ -210,7 +210,10 @@ def _serve(cards: int, n: int, display_cap: int = 0, guard_on: bool = True,
 
     from denning.control.tdr_guard import TdrGuard
     from denning.engine.llamacpp import LlamaCppAdapter
-    devices = [1] if cards == 1 else [0, 1]
+    # Topology after adding the RTX 2070 SUPER as the display card (2026-06-20):
+    #   Vulkan0 = 2070 SUPER (DISPLAY, 8 GB) -- never serve here; Vulkan1/2 = the two
+    #   headless B70s (32 GB each). So the serving cards are [1] and [1, 2], NOT [0, 1].
+    devices = [1] if cards == 1 else [1, 2]
     prompt = ("Explain virtual memory, demand paging, the TLB, and page replacement "
               "in a few precise paragraphs.")
 
