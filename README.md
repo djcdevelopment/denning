@@ -16,9 +16,11 @@ On a fabric-less, RAM-inverted, OS-arbitrated GPU box (Windows/VidMm, PCIe-only 
 
 **Goal: map the feasibility envelope (the bounds), with the simplest system that reveals it.** Compression depth and bit-checks are deferred levers — see `docs/cost-model.md` §7.
 
-## Status: **G0 cleared (2026-06-19)** — forward predictions tagged; building toward H1
+## Status: **G0 cleared (2026-06-19) → control-plane shim built → thermal-window battery run (2026-06-21)**
 
 The cost-model core (R1–R3) and the admission roofline (H2′) are **already measured on-rig** ([`results/E1-SUMMARY.md`](results/E1-SUMMARY.md)) — run *ahead* of formal G0 but under the one rule: the predictions were git-committed (`1118d0c`) **before** the data (`2d19b09`+). G0 — the advisor-lens methodology pass, applied by the maintainer (the "advisor" is a viewpoint, not a third party) — is now cleared, and the still-**untested** forward predictions (**H1′, H4, H5′, H6**) are git-tagged **`prereg-launch-suppositions`** before their experiments run. Next: build the **I-1 VidMm-eviction watchdog**, then run **H1**.
+
+**Update (2026-06-21).** Since G0: the I-1 watchdog shipped, H1's involuntary co-tenant eviction was confirmed, and denning was built as a **thin control plane over an unmodified llama.cpp** (the engine-adapter shim — `results/S-shim-*`). A full **thermal-window benchmark battery** then ran end-to-end — pre-registered (tag `prereg-battery-20260621`), raw-backed, autonomous — covering the decode cliff, the **restore-vs-re-prefill keystone (up to 219×)**, the flash-attn prefill/decode tradeoff, a WDDM spill probe, and the dual-card admission A/B: [`results/battery-thermal-window-20260621.md`](results/battery-thermal-window-20260621.md). Figures below.
 
 ## Results at a glance
 
@@ -33,6 +35,19 @@ The cost-model core (R1–R3) and the admission roofline (H2′) are **already m
 </p>
 
 *Top row — decode falls 11.5× by 64K context (the Vulkan attention cliff); goodput peaks at N\*=8 concurrent sessions (over-admission collapses goodput and throughput); the MoE decodes 5.7× faster than a dense 32B. Bottom row — the memory-bound admission knee (a co-tenant forces the spill → goodput collapses 4→0) and the **H4 make-or-break** (typed lifetime-class eviction beats LRU by **+32% goodput on real inference**, 10/10 seeds; a cache miss is a ~2.8 s re-prefill). All regenerate from measured constants via [`figures/make_figures.py`](figures/make_figures.py).*
+
+### Thermal-window battery (2026-06-21)
+
+<p align="center">
+  <img src="figures/battery-restore-vs-reprefill.png" width="48%" alt="Restore vs cold re-prefill — up to 219x" />
+  <img src="figures/battery-decode-cliff.png" width="48%" alt="Decode cliff — 119 to 5 t/s by 64k" />
+</p>
+<p align="center">
+  <img src="figures/battery-flash-attn-tradeoff.png" width="48%" alt="Flash-attn prefill/decode tradeoff" />
+  <img src="figures/battery-spill-probe.png" width="48%" alt="WDDM spill probe — f16 KV fits to 128k, no demotion" />
+</p>
+
+*Restore is **114–219× cheaper than cold re-prefill** at depth (64k rebuilds in 9.3 min vs restores in 3.85 s); the decode cliff falls 119→5 t/s by 64k with **~3× of the steepness traced to the Vulkan flash-attn kernel** (not the silicon); flash-attn is a prefill accelerator that *triples* decode latency at depth; and the WDDM spill probe shows f16 KV fits to 128k in dedicated VRAM with **no silent demotion** to system RAM. Pre-registered writeup: [`results/battery-thermal-window-20260621.md`](results/battery-thermal-window-20260621.md); regenerate via [`experiments/make_battery_charts.py`](experiments/make_battery_charts.py).*
 
 ## The one rule
 

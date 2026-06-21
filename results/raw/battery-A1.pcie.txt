@@ -1,0 +1,4 @@
+﻿PCIe max-observed under A1 load (device 1 active):
+PCI\VEN_8086&DEV_E223&SUBSYS_17018086&REV_00\6&CBACBA6&0&00080019  width=x1  speed=Gen1
+PCI\VEN_8086&DEV_E223&SUBSYS_17018086&REV_00\6&3980EE0&0&0008001A  width=x1  speed=Gen1
+A1 DONE (exit )

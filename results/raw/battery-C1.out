@@ -1,0 +1,4 @@
+﻿{"target_depth": 16384, "actual_tokens": 16930, "cold_reprefill_ttft_ms": 37236.6, "save_ms": 573.1, "restore_ms": 237.0, "restore_first_tok_ms": 88.1, "restore_total_ms": 325.1, "speedup_x": 114.54, "cold_err": null, "warm_err": null}
+{"target_depth": 32768, "actual_tokens": 33916, "cold_reprefill_ttft_ms": 142808.8, "save_ms": 1051.0, "restore_ms": 477.0, "restore_first_tok_ms": 174.1, "restore_total_ms": 651.1, "speedup_x": 219.33, "cold_err": null, "warm_err": null}
+{"target_depth": 65536, "actual_tokens": 67888, "cold_reprefill_ttft_ms": 0.0, "save_ms": 22927.2, "restore_ms": 825.9, "restore_first_tok_ms": 238288.2, "restore_total_ms": 239114.1, "speedup_x": 0.0, "cold_err": "timed out", "warm_err": null}
+C1 DONE -> D:\work\denning\results\raw\battery-C1.json

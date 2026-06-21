@@ -1,0 +1,71 @@
+﻿{
+  "requests": 16,
+  "admitted": 16,
+  "rejected": 0,
+  "goodput_count": 16,
+  "goodput_frac": 1.0,
+  "slo": {
+    "tpot_ms": 50.0,
+    "ttft_ms": 2000.0,
+    "percentile": "per-request"
+  },
+  "output_tok_per_s": 508.1,
+  "request_per_s": 3.94,
+  "wall_s": 4.1,
+  "ttft_ms": {
+    "mean": 306.24,
+    "p50": 324.0,
+    "p90": 329.5,
+    "p99": 330.4,
+    "n": 16
+  },
+  "tpot_ms": {
+    "mean": 28.82,
+    "p50": 29.14,
+    "p90": 29.15,
+    "p99": 30.07,
+    "n": 16
+  },
+  "itl_ms": {
+    "mean": 28.82,
+    "p50": 29.09,
+    "p90": 30.24,
+    "p99": 31.25,
+    "n": 2048
+  },
+  "e2el_ms": {
+    "mean": 3995.22,
+    "p50": 4030.0,
+    "p90": 4059.8,
+    "p99": 4060.9,
+    "n": 16
+  },
+  "disclosure": {
+    "gpus": "2x Intel Arc Pro B70 32GB (headless) + RTX 2070 Super (display)",
+    "arc_driver": "32.0.101.8826",
+    "nvidia_display_driver": "591.86",
+    "os": "Windows 10",
+    "engine": "llama.cpp Vulkan b9279",
+    "kv_quant": "f16",
+    "model": "Qwen3-30B-A3B-Instruct-2507-Q4_K_M",
+    "host": "Ryzen 5900X / X570 / 32GB RAM",
+    "note": "Arc B70s headless; display on a separate RTX 2070 Super (Vulkan0, never served)",
+    "arm": "denning",
+    "serving_devices": [
+      1,
+      2
+    ],
+    "arrival": "closed-loop_fixed-concurrency",
+    "n_requests": 16,
+    "n_predict": 128,
+    "seed": 0,
+    "prompt_chars": 155,
+    "live_budget_gb": [
+      31.12,
+      31.12
+    ]
+  },
+  "tdr_clean": true,
+  "tdr_delta": 0,
+  "raw_records": "D:\\work\\denning\\results\\raw\\bench-1782063179.jsonl"
+}

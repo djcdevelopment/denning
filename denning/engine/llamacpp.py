@@ -89,7 +89,7 @@ class LlamaCppAdapter:
     # --- serving -----------------------------------------------------------
     def stream(self, port: int, prompt: str, n_predict: int, *, slot: int = -1,
                cache_prompt: bool = False, temperature: float = 0.7,
-               label: str = "s") -> SessionStats:
+               label: str = "s", timeout_s: float = 300.0) -> SessionStats:
         body = {"prompt": prompt, "n_predict": n_predict, "stream": True,
                 "cache_prompt": cache_prompt, "temperature": temperature}
         if slot >= 0:
@@ -99,7 +99,7 @@ class LlamaCppAdapter:
             headers={"Content-Type": "application/json"})
         times, t0 = [], time.perf_counter()
         try:
-            with urllib.request.urlopen(req, timeout=300) as resp:
+            with urllib.request.urlopen(req, timeout=timeout_s) as resp:
                 for raw in resp:
                     line = raw.decode("utf-8", "replace").strip()
                     if not line.startswith("data:"):

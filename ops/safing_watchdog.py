@@ -17,7 +17,7 @@ Polls, every `--interval` seconds, the signals that precede a cascade:
                             binding host wall (prior finding A4: commit, not
                             free RAM, is what binds).
   * physical RAM used GB   (GetPerformanceInfo PhysicalTotal/Available).
-  * C: free GB             (the operator's hard rule: <100 GB => start pruning).
+  * C: free GB             (operator rule: 65 GB comfortable floor, 20 GB hard floor).
   * GPU danger (optional)  via b70tools `verdict --json <dir>`:
                             exit 2 (broken: non_local>2GB etc.) => SAFE,
                             exit 3 (insufficient data) => treated as staleness.
@@ -87,17 +87,20 @@ def worst(a: str, b: str) -> str:
 
 # ---- default thresholds (mirrors b70tools verdict + operator rules) -----------
 class Thresholds:
-    # host RAM used (GB) — verdict's max_host_used_gb floor is 26 on this 32 GB box
-    phys_warn_gb = 23.0
-    phys_safe_gb = 26.0
-    phys_abort_gb = 29.5
+    # host RAM used (GB) — recalibrated 2026-06-21: a resident 17GB model legitimately puts
+    # phys ~28GB on this 32GB box, and mmap'd model pages are clean/reclaimable, so phys is a
+    # SECONDARY backstop near true exhaustion; commit% (below) is the binding signal (finding A4).
+    phys_warn_gb = 30.0
+    phys_safe_gb = 31.0
+    phys_abort_gb = 31.6
     # commit charge (%) — build-roadmap I-1: commit > 90% = safing
     commit_warn_pct = 85.0
     commit_safe_pct = 90.0
     commit_abort_pct = 95.0
-    # C: free (GB) — operator hard rule: <=100 GB is a bad day / start pruning
-    disk_c_warn_gb = 105.0
-    disk_c_safe_gb = 100.0
+    # C: free (GB) — operator rule (2026-06-21): 65 GB is the comfortable floor (WARN);
+    # 20 GB is the hard floor where Windows starts choking (SAFE). Models/large files live on D:.
+    disk_c_warn_gb = 65.0
+    disk_c_safe_gb = 20.0
     # per-card Shared-GPU-Memory non_local (GB) — verdict's hard safety floor
     nonlocal_safe_gb = 2.0
     # telemetry staleness (s) — no fresh b70tools sample => instrument lost

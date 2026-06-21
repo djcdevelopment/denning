@@ -1,0 +1,8 @@
+﻿# spill test on Vulkan device 2  (2026-06-21T09:16:03.0941539-07:00)
+depth,dedicated_gb_max,shared_gb_max,sampled_s,proc_exited
+65536,23.60,0.14,78,False
+81920,25.11,0.17,77,False
+98304,26.62,0.20,77,False
+114688,28.17,0.23,77,False
+131072,29.72,0.26,77,False
+# SPILL TEST DONE 2026-06-21T09:22:45.3778429-07:00

@@ -1,0 +1,2 @@
+﻿{"target_depth": 65536, "actual_tokens": 67888, "cold_reprefill_ttft_ms": 558859.3, "save_ms": 3781.2, "restore_ms": 3453.2, "restore_first_tok_ms": 393.2, "restore_total_ms": 3846.4, "speedup_x": 145.29, "cold_err": null, "warm_err": null}
+C1 DONE -> D:\work\denning\results\raw\battery-C1.json
