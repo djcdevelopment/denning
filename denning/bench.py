@@ -27,6 +27,7 @@ import os
 import random
 import statistics
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -76,7 +77,7 @@ def arrivals(n, rate, seed):
     return out
 
 
-def run(daemon, n, rate, n_predict, seed):
+def run(dispatch, n, rate, n_predict, seed):
     sched = arrivals(n, rate, seed)
     rec = [None] * n
     t0 = time.perf_counter()
@@ -86,7 +87,7 @@ def run(daemon, n, rate, n_predict, seed):
         if wait > 0:
             time.sleep(wait)                      # open-loop: fire at the scheduled arrival
         arr = time.perf_counter()
-        r = daemon.handle(i, PROMPT, n_predict)   # blocks through admission + stream
+        r = dispatch(i, PROMPT, n_predict)        # denning: admission+arena+stream; baseline: raw stream
         e2e = round((time.perf_counter() - arr) * 1000, 1)   # client E2EL incl. queueing
         itl = r.get("itl_ms")
         rec[i] = {"i": i, "arrival_ms": round((arr - t0) * 1000, 1),
@@ -131,6 +132,9 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--slo-tpot", type=float, default=50.0)
     ap.add_argument("--slo-ttft", type=float, default=2000.0)
+    ap.add_argument("--arm", choices=["denning", "baseline"], default="denning",
+                    help="denning = control plane (admission+arena+routing); baseline = stock engine, round-robin")
+    ap.add_argument("--tag", default=None, help="also write the summary JSON to results/raw/bench-<tag>.summary.json")
     args = ap.parse_args()
 
     devices = [int(x) for x in args.devices.split(",") if x.strip() != ""]
@@ -141,25 +145,53 @@ def main():
     guard = None
     if args.dry_run:
         from tests.test_shim import FakeAdapter
-        d = Daemon(FakeAdapter(), devices=devices, live_budget=False, display_device=None)
+        adapter, live = FakeAdapter(), False
     else:
         from denning.control.tdr_guard import TdrGuard
         from denning.engine.llamacpp import LlamaCppAdapter
-        d = Daemon(LlamaCppAdapter(), devices=devices, slots=8, ctx=2048, live_budget=True)
+        adapter, live = LlamaCppAdapter(), True
         guard = TdrGuard(); guard.arm()
 
-    d.start()
+    if args.arm == "denning":
+        daemon = Daemon(adapter, devices=devices, slots=8, ctx=2048, live_budget=live,
+                        display_device=(None if args.dry_run else 0))
+        daemon.start()
+        serving = daemon.serving_devices
+        dispatch, stop = (lambda i, p, n: daemon.handle(i, p, n)), daemon.stop
+    else:   # baseline -- stock engine replicas, round-robin, NO admission/arena/affinity
+        ports, handles, rr, lock = [], [], {"n": 0}, threading.Lock()
+        for dev in devices:
+            port = 8240 + dev
+            handles.append(adapter.spawn_replica(dev, port, 8, 2048 * 8))
+            if not adapter.health(port, 300):
+                print(json.dumps({"error": "health timeout dev %d" % dev})); return 2
+            adapter.stream(port, "warmup", 8, label="warmup")
+            ports.append(port)
+        serving = list(devices)
+
+        def dispatch(i, p, n):
+            with lock:
+                port = ports[rr["n"] % len(ports)]; rr["n"] += 1
+            st = adapter.stream(port, p, n, cache_prompt=True, label="r%d" % i)
+            return {"admitted": True, "device": port - 8240, "action": "baseline",
+                    "ttft_ms": st.ttft_ms, "tpot_ms": st.tbt_median_ms, "e2el_ms": st.e2el_ms,
+                    "itl_ms": st.itl_ms, "tokens": st.tokens}
+
+        def stop():
+            for h in handles:
+                adapter.stop(h)
+
     try:
-        records, wall = run(d, args.n, args.rate, args.n_predict, args.seed)
+        records, wall = run(dispatch, args.n, args.rate, args.n_predict, args.seed)
     finally:
-        d.stop()
+        stop()
 
     summary = summarize(records, wall, args.slo_tpot, args.slo_ttft)
     summary["disclosure"] = dict(
-        RIG, serving_devices=d.serving_devices,
+        RIG, arm=args.arm, serving_devices=serving,
         arrival=("poisson@%g_req_s" % args.rate) if args.rate else "closed-loop_fixed-concurrency",
         n_requests=args.n, n_predict=args.n_predict, seed=args.seed, prompt_chars=len(PROMPT),
-        live_budget_gb=None if args.dry_run else [budgetmod.read_live_budget_gb(x) for x in d.serving_devices])
+        live_budget_gb=None if args.dry_run else [budgetmod.read_live_budget_gb(x) for x in serving])
     if guard is not None:
         summary["tdr_clean"], summary["tdr_delta"] = guard.clean(), guard.delta()
 
@@ -172,6 +204,9 @@ def main():
         f.flush()
         os.fsync(f.fileno())
     summary["raw_records"] = raw_path
+    if args.tag:
+        with open(os.path.join(RAW_DIR, "bench-%s.summary.json" % args.tag), "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2)
     print(json.dumps(summary, indent=2))
     return 0
 
