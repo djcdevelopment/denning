@@ -87,8 +87,10 @@ class Daemon:
         self.rejected = 0
         self._rr = 0
         self._lock = threading.Lock()    # guards the fast routing/arena bookkeeping
-        self._budget_cache: dict = {}    # device -> (gb, t); the slow probe, TTL-cached
+        self._budget_cache: dict = {}    # device -> (gb, t); filled by the background poller
         self._budget_ttl = 2.0
+        self._budget_stop = threading.Event()
+        self._budget_thread = None
 
     # --- lifecycle ---------------------------------------------------------
     def start(self) -> None:
@@ -101,8 +103,17 @@ class Daemon:
             self.replicas[d] = Replica(
                 device=d, port=port, handle=h,
                 arena=LifetimeClassArena(self.adapter, port, self.slots, self.policy, self.swap))
+        if self.live_budget:
+            for d in self.serving_devices:
+                self._refresh_budget(d)              # warm once before serving
+            self._budget_stop.clear()
+            self._budget_thread = threading.Thread(target=self._budget_poller, daemon=True)
+            self._budget_thread.start()
 
     def stop(self) -> None:
+        self._budget_stop.set()
+        if self._budget_thread is not None:
+            self._budget_thread.join(timeout=5)
         for rep in self.replicas.values():
             self.adapter.stop(rep.handle)
 
@@ -120,26 +131,32 @@ class Daemon:
         self.router.reserve(port)
         return port
 
+    def _refresh_budget(self, device: int) -> None:
+        b = budgetmod.read_live_budget_gb(device)
+        self._budget_cache[device] = (b if b is not None else self.nominal_budget_gb, time.time())
+
+    def _budget_poller(self) -> None:
+        """Refresh the live VidMm budget OFF the request path. The D3D12 probe shells out
+        (~1 s with --hold-s); calling it per-request under concurrency caused a probe
+        stampede that inflated E2EL ~18 s (caught by bench.py). Poll once per TTL instead."""
+        while not self._budget_stop.wait(self._budget_ttl):
+            for d in self.serving_devices:
+                try:
+                    self._refresh_budget(d)
+                except Exception:
+                    pass
+
     def _budget(self, device: int) -> float:
-        """Live VidMm budget, TTL-cached. Read OUTSIDE the bookkeeping lock -- the
-        probe shells out (~1 s), too slow to serialize every request behind."""
+        """Live VidMm budget -- a fast read of the background-polled cache (NEVER probes on
+        the request path). Falls back to nominal until the first poll lands."""
         if not self.live_budget:
             return self.nominal_budget_gb
-        now = time.time()
         cached = self._budget_cache.get(device)
-        if cached and now - cached[1] < self._budget_ttl:
-            return cached[0]
-        b = budgetmod.read_live_budget_gb(device)
-        b = b if b is not None else self.nominal_budget_gb
-        self._budget_cache[device] = (b, now)
-        return b
+        return cached[0] if cached else self.nominal_budget_gb
 
     def handle(self, conv, prompt: str, n_predict: int = 64) -> dict:
-        # Warm the TTL budget cache OUTSIDE the lock (the probe shells out ~1 s; never
-        # under the lock). Then route + admit + slot-assign under the lock (fast,
-        # in-memory) -- only the shared bookkeeping is guarded; the stream runs free.
-        for d in self.devices:
-            self._budget(d)
+        # The live budget is kept warm by the background poller, so this is a fast cache
+        # read; route + admit + slot-assign under the lock (in-memory), the stream runs free.
         with self._lock:
             port = self._route(conv)
             device = self._port_device[port]

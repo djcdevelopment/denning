@@ -1,5 +1,12 @@
 # Result — clean, reproducible two-card serving baseline (2026-06-21)
 
+> ⛔ **SUPERSEDED same day — the 8.81 ms TBT here is an ARTIFACT.** Re-running through the
+> raw-persisting harness exposed a `denningd` bug: a per-request budget-probe stampede was
+> *serializing* the 16 requests, so they never ran truly concurrent — making per-token
+> latency look near-solo (8.81 ms). Fixed (background budget poller); the honest concurrent
+> number is **TPOT p99 ~37 ms** (still ≤ the 50 ms SLO, so **16/16 goodput holds**). Use the
+> corrected, raw-backed result: [`two-card-bench-corrected-20260621.md`](two-card-bench-corrected-20260621.md).
+
 *The honest replacement for the retracted [`two-card-goodput-20260619`](two-card-goodput-20260619.md).
 After offloading the display to an RTX 2070 SUPER (both B70s headless — Vulkan 1+2),
 the two-card serve loop runs **clean and reproducibly**, with the display-driver TDRs
