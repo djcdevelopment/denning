@@ -162,7 +162,9 @@ class Daemon:
             return {"conv": conv, "admitted": True, "device": device, "port": port,
                     "slot": slot, "action": action, "budget_gb": round(budget, 2),
                     "capacity": cap, "ttft_ms": stats.ttft_ms,
-                    "tbt_median_ms": stats.tbt_median_ms, "decode_tps": stats.decode_tps}
+                    "tbt_median_ms": stats.tbt_median_ms, "decode_tps": stats.decode_tps,
+                    "tpot_ms": stats.tbt_median_ms, "e2el_ms": stats.e2el_ms,
+                    "itl_ms": stats.itl_ms, "tokens": stats.tokens}
         finally:
             with self._lock:
                 self.router.release(port)

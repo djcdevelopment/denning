@@ -40,6 +40,8 @@ class SessionStats:
     tbt_p95_ms: Optional[float] = None
     decode_tps: Optional[float] = None
     error: Optional[str] = None
+    itl_ms: Optional[list] = None      # raw inter-token gaps (ms) -- the ITL distribution for p99
+    e2el_ms: Optional[float] = None    # end-to-end latency (ms): arrival/dispatch -> last token
 
     @property
     def ok(self) -> bool:

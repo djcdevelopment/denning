@@ -121,7 +121,9 @@ class LlamaCppAdapter:
             ttft_ms=round((times[0] - t0) * 1000, 1),
             tbt_median_ms=round(statistics.median(deltas) * 1000, 2),
             tbt_p95_ms=round(sorted(deltas)[max(0, int(0.95 * len(deltas)) - 1)] * 1000, 2),
-            decode_tps=round((len(times) - 1) / (times[-1] - times[0]), 2))
+            decode_tps=round((len(times) - 1) / (times[-1] - times[0]), 2),
+            itl_ms=[round(d * 1000, 3) for d in deltas],          # raw ITL series for percentiles
+            e2el_ms=round((times[-1] - t0) * 1000, 1))
 
     # --- the KV-residency seam ---------------------------------------------
     def _slot_action(self, port: int, slot: int, action: str, body: dict) -> float:

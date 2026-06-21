@@ -37,7 +37,9 @@ class FakeAdapter:
     def stream(self, port, prompt, n_predict, *, slot=-1, cache_prompt=False,
                temperature=0.7, label="s") -> SessionStats:
         return SessionStats(label=label, tokens=n_predict, ttft_ms=10.0,
-                            tbt_median_ms=9.0, decode_tps=110.0)
+                            tbt_median_ms=9.0, decode_tps=110.0,
+                            itl_ms=[9.0] * max(1, n_predict - 1),
+                            e2el_ms=round(10.0 + 9.0 * (n_predict - 1), 1))
 
     def save_kv(self, port, slot, filename) -> float:
         self.saves += 1; return 30.0
